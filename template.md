@@ -12,9 +12,9 @@ Describing the test case
 Describing OSC state and environment state
 
 **Steps:**
-** 1.**
-** 2.**
-...
+1.  
+2.  
+...  
 
 **Expected Result:**
 describe the expected result
