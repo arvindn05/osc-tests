@@ -1,8 +1,8 @@
-# How to setup OSC automation and run
+# How to setup and use OSC automation
 
-## Need python and robot and some openstack libraries:
+## Need Python 3, and Python libraries for Robot framework and OpenStack usage:
 
-Python 3.X  
+Install Python 3.X  
 
 ### In order to run automation from Windows:
 
@@ -46,4 +46,3 @@ pybot -d ../results -v testbed:mytestbed.robot MC.robot
 
 Multiple test suites:   
 pybot -d ../results -v testbed:mytestbed.robot -A Multiple-Suites.robot
-
