@@ -11,7 +11,7 @@ Describing the test case
 **Required Initial State:**
 Describing OSC state and environment state
 
-**Steps:**
+**Steps:**    
 1.  
 2.  
 ...  
