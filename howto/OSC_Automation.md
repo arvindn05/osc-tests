@@ -17,7 +17,7 @@ Download Visual C++ 2015 Build Tools
 4. pip install robotframework  
 
 At the end please run the command:   
-5. pip install -I python-openstackclient
+  5. pip install -I python-openstackclient
 
 ### In order to run automation from Ubuntu:
 
