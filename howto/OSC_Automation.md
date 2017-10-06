@@ -1,5 +1,5 @@
 # How to setup and use OSC automation
-
+This document describes how was ussing Python linbrary and Robot framework in OSC team's test automation.
 ## Need Python 3, and Python libraries for Robot framework and OpenStack usage:
 
 Install Python 3.X  
