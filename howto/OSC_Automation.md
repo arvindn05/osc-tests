@@ -11,25 +11,25 @@ python -m pip install --upgrade pip
 http://landinghub.visualstudio.com/visual-cpp-build-tools  
 Download Visual C++ 2015 Build Tools  
 
-pip install python-openstackclient  
-pip install python-keystoneClient  
-pip install python-neutronclient  
-pip install robotframework  
+1. pip install python-openstackclient  
+2. pip install python-keystoneClient  
+3. pip install python-neutronclient  
+4. pip install robotframework  
 
 At the end please run the command:   
-pip install -I python-openstackclient
+5. pip install -I python-openstackclient
 
 ### In order to run automation from Ubuntu:
 
-sudo apt-get update  
-sudo apt-get install python-setuptools build-essential  
-sudo apt-get install python-openstackclient  
-sudo apt-get install python-keystoneClient  
-sudo apt-get install python-neutronclient  
-sudo pip3 install robotframework
+1. sudo apt-get update  
+2. sudo apt-get install python-setuptools build-essential  
+3. sudo apt-get install python-openstackclient  
+4. sudo apt-get install python-keystoneClient  
+5. sudo apt-get install python-neutronclient  
+6. sudo pip3 install robotframework
 
-At the end please run the command:
-sudo pip3 install -I python-openstackclient
+At the end please run the command:  
+7. sudo pip3 install -I python-openstackclient
 
 ## How to run Robot with Python:
 
