@@ -16,6 +16,8 @@ pip install python-keystoneClient
 pip install python-neutronclient  
 pip install robotframework  
 
+At the end please run the command:   
+pip install -I python-openstackclient
 
 ### In order to run automation from Ubuntu:
 
@@ -24,7 +26,10 @@ sudo apt-get install python-setuptools build-essential
 sudo apt-get install python-openstackclient  
 sudo apt-get install python-keystoneClient  
 sudo apt-get install python-neutronclient  
-sudo pip3 install robotframework  
+sudo pip3 install robotframework
+
+At the end please run the command:
+sudo pip3 install -I python-openstackclient
 
 ## How to run Robot with Python:
 
