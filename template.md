@@ -11,10 +11,10 @@ Describing the test case
 **Required Initial State:**
 Describing OSC state and environment state
 
-**Steps:**
-** 1.**
-** 2.**
-...
+**Steps:**    
+1.  
+2.  
+...  
 
 **Expected Result:**
 describe the expected result
