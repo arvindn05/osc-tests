@@ -6,13 +6,13 @@ This document describes how it was using public and private Python libraries and
 Install Python 3.X  
 
 ### In order to run automation from Windows:
-Update your pip to the latest version:
+Update your pip to the latest version:  
 `> python -m pip install --upgrade pip`  
 
 We also need Visual C++ build tools to avoid the next error when installing openstack libraries:
-"error: Microsoft Visual C++ 14.0 is required. Get it with "Microsoft Visual C++ Build Tools": http://landinghub.visualstudio.com/visual-cpp-build-tools"
+"error: Microsoft Visual C++ 14.0 is required. Get it with "Microsoft Visual C++ Build Tools": http://landinghub.visualstudio.com/visual-cpp-build-tools"  
  
-Download Visual C++ 2015 Build Tools  from http://landinghub.visualstudio.com/visual-cpp-build-tools 
+Download Visual C++ 2015 Build Tools  from http://landinghub.visualstudio.com/visual-cpp-build-tools  
 
 `> pip install python-openstackclient`  
 `> pip install python-keystoneClient`  
