@@ -1,53 +1,51 @@
 # How to setup and use OSC automation
+This document describes how it was using public and private Python libraries and Robot framework in OSC team's test automation.
 
-## Need Python 3, and Python libraries for Robot framework and OpenStack usage:
+## Prerequisites: Need Python 3, and Python libraries for Robot framework and OpenStack usage:
 
 Install Python 3.X  
 
 ### In order to run automation from Windows:
+Update your pip to the latest version:  
+`> python -m pip install --upgrade pip`  
 
-python -m pip install --upgrade pip
+We also need Visual C++ build tools to avoid the next error when installing openstack libraries:
+"error: Microsoft Visual C++ 14.0 is required. Get it with "Microsoft Visual C++ Build Tools": http://landinghub.visualstudio.com/visual-cpp-build-tools"  
+ 
+Download Visual C++ 2015 Build Tools  from http://landinghub.visualstudio.com/visual-cpp-build-tools  
 
-http://landinghub.visualstudio.com/visual-cpp-build-tools  
-Download Visual C++ 2015 Build Tools  
+`> pip install python-openstackclient`  
+`> pip install python-keystoneClient`  
+`> pip install python-neutronclient`  
+`> pip install robotframework`  
 
-1. pip install python-openstackclient  
-2. pip install python-keystoneClient  
-3. pip install python-neutronclient  
-4. pip install robotframework  
-
-At the end please run the command:   
-  5. pip install -I python-openstackclient
 
 ### In order to run automation from Ubuntu:
 
-1. sudo apt-get update  
-2. sudo apt-get install python-setuptools build-essential  
-3. sudo apt-get install python-openstackclient  
-4. sudo apt-get install python-keystoneClient  
-5. sudo apt-get install python-neutronclient  
-6. sudo pip3 install robotframework
-
-At the end please run the command:  
-7. sudo pip3 install -I python-openstackclient
+`$ sudo apt-get update`  
+`$ sudo apt-get install python-setuptools build-essential`  
+`$ sudo apt-get install python-openstackclient`  
+`$ sudo apt-get install python-keystoneClient`  
+`$ sudo apt-get install python-neutronclient`  
+`$ sudo pip3 install robotframework`  
 
 ## How to run Robot with Python:
 
 ### Examples how to run on windows:
 
-cd  osc-tests\functional-tests\robot  
+`> cd  osc-tests\functional-tests\robot`  
 
 Single test suite:   
-c:\Python36\Scripts\pybot.bat -d ..\results -v testbed:mytestbed.robot MC.robot
+`> c:\Python36\Scripts\pybot.bat -d ..\results -v testbed:mytestbed.robot MC.robot`  
 
 Multiple test suites:   
-c:\Python36\Scripts\pybot.bat -d ..\results -v testbed:mytestbed.robot -A Multiple-Suites.robot
+`> c:\Python36\Scripts\pybot.bat -d ..\results -v testbed:mytestbed.robot -A Multiple-Suites.robot`  
 
 ### Examples how to run on Ubuntu:
-cd  osc-tests/functional-tests/robot
+`$ cd  osc-tests/functional-tests/robot`  
 
 Single test suite:  
-pybot -d ../results -v testbed:mytestbed.robot MC.robot
+`$ pybot -d ../results -v testbed:mytestbed.robot MC.robot`  
 
 Multiple test suites:   
-pybot -d ../results -v testbed:mytestbed.robot -A Multiple-Suites.robot
+`$ pybot -d ../results -v testbed:mytestbed.robot -A Multiple-Suites.robot`  
