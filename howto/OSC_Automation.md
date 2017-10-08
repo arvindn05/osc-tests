@@ -32,7 +32,7 @@ Execute multiple test categories
 
 ### Ubuntu Environment
 ```sh
-$ sudo apt-get update`  
+$ sudo apt-get update  
 $ sudo apt-get install python-setuptools build-essential    
 $ sudo apt-get install python-openstackclient    
 $ sudo apt-get install python-keystoneClient    
