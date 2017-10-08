@@ -14,7 +14,7 @@ Download Visual C++ build tools from http://landinghub.visualstudio.com/visual-c
 when installing OpenStack libraries: 
 `"error Microsoft Visual C++ 14.0 is required. Get it with "Microsoft Visual C++ Build Tools".`  
 
-```sh
+```
 > pip install python-openstackclient    
 > pip install python-keystoneClient    
 > pip install python-neutronclient    
