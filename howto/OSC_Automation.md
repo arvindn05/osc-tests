@@ -24,10 +24,10 @@ The following are examples of executing Robot with Python commands on Windows:
 Go to robot directory to be able to execute automation commands  
 `> cd  osc-tests\functional-tests\robot`  
 
-To execute a single test category    
+Execute a single test category    
 `> c:\Python36\Scripts\pybot.bat -d ..\results -v testbed:mytestbed.robot MC.robot`  
 
-To execute multiple test categories  
+Execute multiple test categories  
 `> c:\Python36\Scripts\pybot.bat -d ..\results -v testbed:mytestbed.robot -A Multiple-Suites.robot`  
 
 ### Ubuntu Environment
@@ -43,8 +43,8 @@ The following are examples of executing Robot with Python commands on Ubuntu:
 Go to robot directory to be able to execute automation commands  
 `$ cd  osc-tests/functional-tests/robot`   
 
-To execute a single test category 
+Execute a single test category 
 `$ pybot -d ../results -v testbed:mytestbed.robot MC.robot`   
 
-To execute multiple test categories  
+Execute multiple test categories  
 `$ pybot -d ../results -v testbed:mytestbed.robot -A Multiple-Suites.robot` 
