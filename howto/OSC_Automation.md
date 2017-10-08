@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-OSC_Automation.md
-=======
 # How to setup and use OSC automation
 This document describes how to use public and private Python libraries and Robot framework in OSC team's test automation.
 
@@ -51,4 +48,4 @@ Execute a single test category
 
 Execute multiple test categories  
 `$ pybot -d ../results -v testbed:mytestbed.robot -A Multiple-Suites.robot` 
->>>>>>> e44f29b83a5d734559f23494c07246522b198dd5
+
