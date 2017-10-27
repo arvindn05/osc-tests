@@ -37,7 +37,7 @@ Execute multiple test categories
 `> c:\Python36\Scripts\pybot.bat -d ..\results -v testbed:mytestbed.robot -A Multiple-Suites.robot`  
 
 ### Ubuntu Environment
-In Ubuntu it is tricky, first run this with -E which helps to run as environment of current user, not the root user:
+In Ubuntu it is tricky, first run this with -E which helps to run as environment of current user, not the root user, in addition we have to install setuptools to be used by pip3 later:
 ```sh  
 $ sudo –E pip3 install setuptools  
 ```  
@@ -46,7 +46,6 @@ Upgrade the pip3 itself to use setuptools - so it will use the updated setuptool
 $ sudo –E pip3 install --upgrade pip  
 ```  
 ```sh
-$ sudo apt-get update  
 $ sudo -E pip3 install python-openstackclient    
 $ sudo -E pip3 install python-keystoneClient    
 $ sudo -E pip3 install python-neutronclient    
