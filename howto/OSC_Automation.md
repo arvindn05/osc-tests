@@ -37,13 +37,20 @@ Execute multiple test categories
 `> c:\Python36\Scripts\pybot.bat -d ..\results -v testbed:mytestbed.robot -A Multiple-Suites.robot`  
 
 ### Ubuntu Environment
+In Ubuntu it is tricky, first run this with -E which helps to run as environment of current user, not the root user:
+```sh  
+$ sudo –E pip3 install setuptools  
+```  
+Upgrade the pip3 itself to use setuptools - so it will use the updated setuptools and install correctly all the rest:
+```sh  
+$ sudo –E pip3 install --upgrade pip  
+```  
 ```sh
 $ sudo apt-get update  
-$ sudo apt-get install python-setuptools build-essential    
-$ sudo apt-get install python-openstackclient    
-$ sudo apt-get install python-keystoneClient    
-$ sudo apt-get install python-neutronclient    
-$ sudo pip3 install robotframework    
+$ sudo -E pip3 install python-openstackclient    
+$ sudo -E pip3 install python-keystoneClient    
+$ sudo -E pip3 install python-neutronclient    
+$ sudo -E pip3 install robotframework    
 ```
 The following are examples of executing Robot with Python commands on Ubuntu:  
 Go to robot directory to be able to execute automation commands
