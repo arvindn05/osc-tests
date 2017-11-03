@@ -2048,8 +2048,8 @@ def getSgState(oscConn, sg_info=None, osVcIpAddr=None, GlobalData=None):
     sg_state['sg_members'] = sg_members
     if sg_bindings:
         for x in sg_bindings:
-            if x['isBinded']:
-                sg_state['isBinded'] = True
+            if x['binded']:
+                sg_state['binded'] = True
                 sg_state['isBound'] = True
             pass
         pass

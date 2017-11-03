@@ -140,6 +140,7 @@ class ISC(object):
 
     def _generateDict(self, table, obj=None, dkey="name", dval="id"):
         _dict = {}
+
         if not table:
             return {}
         elif obj and isinstance(table, dict) and obj in table:
@@ -149,6 +150,7 @@ class ISC(object):
         if not isinstance(table, list):
             self._output.log_error("_generateDict -- Invalid 'table' arg:\n%s" %(table))
         for currdict in table:
+            self._output.log_debug("%s %s" %(currdict[dkey], currdict[dval]))
             k = currdict[dkey]
             v = currdict[dval]
             _dict[k] = v
@@ -494,7 +496,7 @@ class ISC(object):
         vc_dict = get_obj_dict(vc)
         self._output.log_debug(
                 "Enter osc.createVC  - vcname: \"%s\"  type: \"%s\"  SDN Controller Type: \"%s\"\n%s" % (vc.name, vc.type, vc.controllerType, self._output.pformat(vc_dict)))
-        pass
+
 
         vcname = vc.name
         #vc_dict = get_obj_dict(vc)
@@ -502,27 +504,21 @@ class ISC(object):
         #self._output.log_error("createVC -- VC Dict:\n%s" %(self._output.pformat(vc_dict)))
         if not isinstance(vc.name, str):
             self._output.log_error("createVC -- vcname(type=%s):\n%s" %(type(vc.name), self._output.pformat(vc.name)))
-        pass
 
         vcid = -1
         passed = True
         errors = []
 
         if vc.type == 'OPENSTACK':
+            vcid = self.createOStackVC(vc)
+            '''
             try:
                 vcid = self.createOStackVC(vc)
             except JobException as err:
                 print("Got exception from createVC", err)
                 pass
-        '''
-        if passed:
-            self._output.log_debug(
-                "_create_virtualization_conn   - Virtualization Connector Created - vc ID: %s - %s" % (
-                vcid, vcid.__repr__()))
-        else:
-            pass #raise JobException(errors)
-        pass
-        '''
+            '''
+
         return vcid
 
     pass
@@ -568,6 +564,7 @@ class ISC(object):
         self._output.log_debug("Enter getManagerConnectorDataById")
         url = "/api/server/v1/applianceManagerConnectors/%s" % (mc_id)
         mcdata = self.getQueryData(url)
+
         mc_type = mcdata['managerType']
         mcdata['mctype'] = mc_type
         mcdata['mc_type'] = mc_type
@@ -670,7 +667,7 @@ class ISC(object):
             "password": "%s",
             "skipRemoteValidation": %s,
             "forceAddSSLCertificates": %s,
-            "isPolicyMappingSupported": false
+            "policyMappingSupported": false
         }
         ''' % (mcname,
                 "NSM",
@@ -689,7 +686,7 @@ class ISC(object):
             "apiKey": "%s",
             "skipRemoteValidation": %s,
             "forceAddSSLCertificates": %s,
-            "isPolicyMappingSupported": false
+            "policyMappingSupported": false
         }
         ''' % (mcname,
                 "SMC",
@@ -761,8 +758,6 @@ class ISC(object):
 
         return mcid
     pass
-
-
 
     # Create a distributed appliance with the given properties.
     # This method only supports adding a single virtualization connector to
@@ -941,6 +936,21 @@ class ISC(object):
 
     pass
 
+    def getSfcVirtualizationConnectors(self):
+        action = 'Virtualization Connectors query'
+        url = '/api/server/v1/virtualizationConnectors'
+        body = ''
+
+        data = self._isc_connection("GET", url, body, action)
+
+        vc_dict = {}
+
+        for vc in data:
+            if vc['controllerType'] == 'Neutron-sfc':
+                vc_dict[vc['name']] = vc['id']
+
+        return vc_dict
+
     # Get all virtualization connectors defined on the ISC.
     # Return a dictionary of name -> connector ID.
     def getVirtualizationConnectors(self):
@@ -977,10 +987,8 @@ class ISC(object):
         body = ''
 
         data = self._isc_connection("GET", url, body, action)
-        return self._generateDict(data, 'domain', 'name', 'id')
-
-
-
+        return self._generateDict(data, 'domain','name', 'id')
+       
 
     # Sync a distributed appliance.  Input is an ID.
     # Returns the ID of the sync job.
@@ -1370,8 +1378,8 @@ class ISC(object):
     def deployAppliance(self, da_id, cluster, datastore, portgrgroup, ippool):
         vs_id = self.getVSIDsforDAID(da_id)
         action = 'Deploy Distributed Appliance %s VS %s to cluster %s' % (da_id, vs_id, cluster)
-        url = '/api/server/v1/virtualSystems/%s/deploy' % vs_id
         method = "POST"
+        url = '/api/server/v1/virtualSystems/%s/deploy' % vs_id
 
         datafmt = "JSON"
         headers = datafmt
@@ -1428,7 +1436,7 @@ class ISC(object):
 
 
     def createDS(self, ds):
-        return( self._deployOStackAppliance(dsname=ds.name, daname=ds.da_name, projectName=ds.project_name, region=ds.region_name, mgmtNetName=ds.mgmtnet_name, inspNetName=ds.inspnet_name, ippool=ds.ippool_name, count=ds.count, shared=ds.shared) )
+        return( self._deployOStackAppliance(dsname=ds.name, daname=ds.da_name, projectName=ds.project_name, region=ds.region_name, selection=ds.selection, mgmtNetName=ds.mgmtnet_name, inspNetName=ds.inspnet_name, ippool=ds.ippool_name, count=ds.count, shared=ds.shared) )
     pass
 
 
@@ -1438,7 +1446,7 @@ class ISC(object):
     # Lastly, the number of desired firewalls (count).
     # No return value - need to check the status on vCenter and SMC (as well
     # as ISC), so the calling routine needs to do status checking,
-    def _deployOStackAppliance(self, dsname=None, daname=None, projectName=None, region=None, mgmtNetName=None, inspNetName=None, ippool=None, count=1, shared=True, update=False):
+    def _deployOStackAppliance(self, dsname=None, daname=None, projectName=None, region=None, selection='All', mgmtNetName=None, inspNetName=None, ippool='null', count=1, shared=True, update=False):
 
         _funcargs = {'dsname':dsname, 'daname':daname, 'projectName':projectName, 'region':region, 'mgmtNetName':mgmtNetName, 'inspNetName':inspNetName, 'ippool':ippool, 'count':count, 'shared':shared, 'update':update }
 
@@ -1484,7 +1492,7 @@ class ISC(object):
 
         project_nm_to_id = get_projects(ostkConn=ostk_client)
         #project_nm_to_id = get_projects(ostack_ip=vc_ip, cred_dict=ostk_cred_dict, ostckcon=v3Client)
-        print(project_nm_to_id)
+
         self._output.log_debug("_deployOStackAppliance -- Project Info:\n%s" %(self._output.pformat(project_nm_to_id)))
         projectId  = project_nm_to_id[projectName]
         #network_nm_to_id = get_networks(session=ostk_session)
@@ -1507,25 +1515,132 @@ class ISC(object):
 
         url = '/api/server/v1/virtualSystems/%s/deploymentSpecs' % vs_id
 
-        json_body='''
-    {
-      "name": "%s",
-      "projectId": "%s",
-      "projectName": "%s",
-      "region": "%s",
-      "managementNetworkName": "%s",
-      "managementNetworkId": "%s",
-      "inspectionNetworkName": "%s",
-      "inspectionNetworkId": "%s",
-      "floatingIpPoolName" : "%s",
-      "isShared": "%s",
-      "count": "%s"
-    }''' % (dsname, projectId, projectName, region, mgmtNetName, mgmtNetId, inspNetName, inspNetId, ippool, shared, count)
+        if ippool != 'null':
+            ippool = '"' + ippool + '"'
 
-        body = json_body
+        if selection == 'All':
+            body='''
+            {
+              "name": "%s",
+              "projectId": "%s",
+              "projectName": "%s",
+              "region": "%s",
+              "managementNetworkName": "%s",
+              "managementNetworkId": "%s",
+              "inspectionNetworkName": "%s",
+              "inspectionNetworkId": "%s",
+              "floatingIpPoolName" : %s,
+              "shared": "%s",
+              "count": "%s"
+            }''' % (dsname, projectId, projectName, region, mgmtNetName, mgmtNetId, inspNetName, inspNetId, ippool, shared, count)
+        elif selection.startswith('hosts'):
+
+            pos = selection.find(':')
+            hostnames = selection[pos + 1:].split(',')
+            json_host_names = ''
+            for hostname in hostnames:
+                current_json_for_host = '''
+                                            {
+                                                "parentId": null,
+                                                "openstackId": "%s",
+                                                "name": "%s"
+                                            }
+                                        ''' % (hostname, hostname)
+                json_host_names = json_host_names + '\n' + current_json_for_host
+
+            body = '''
+            {
+              "name": "%s",
+              "projectId": "%s",
+              "projectName": "%s",
+              "region": "%s",
+
+              "hosts": [
+                    %s
+              ],
+              "availabilityZones": [],
+              "hostAggregates": [],
+              "managementNetworkName": "%s",
+              "managementNetworkId": "%s",
+              "inspectionNetworkName": "%s",
+              "inspectionNetworkId": "%s",
+              "floatingIpPoolName" : %s,
+              "shared": "%s",
+              "count": "%s"
+            }''' % (dsname, projectId, projectName, region, json_host_names, mgmtNetName, mgmtNetId, inspNetName, inspNetId, ippool, shared, count)
+
+        elif selection.startswith('zone'):
+
+            pos = selection.find(':')
+            zonenames = selection[pos + 1:].split(',')
+            json_zone_names = ''
+            for zonename in zonenames:
+                current_json_for_zone = '''
+                                            {
+                                                "parentId": null,
+                                                "region": "%s",
+                                                "zone": "%s"
+                                            }
+                                        ''' % (region, zonename)
+                json_zone_names = json_zone_names + '\n' + current_json_for_zone
+
+            body = '''
+            {
+              "name": "%s",
+              "projectId": "%s",
+              "projectName": "%s",
+              "region": "%s",
+              "hosts": [],
+              "availabilityZones": [
+                   %s
+              ],
+              "hostAggregates": [],
+              "managementNetworkName": "%s",
+              "managementNetworkId": "%s",
+              "inspectionNetworkName": "%s",
+              "inspectionNetworkId": "%s",
+              "floatingIpPoolName" : %s,
+              "shared": "%s",
+              "count": "%s"
+            }''' % (dsname, projectId, projectName, region, json_zone_names, mgmtNetName, mgmtNetId, inspNetName, inspNetId, ippool, shared, count)
+
+        elif selection.startswith('hostAggregate'):
+
+            pos = selection.find(':')
+            hAggnames = selection[pos + 1:].split(',')
+            json_hAgg_names = ''
+            for hAggname in hAggnames:
+                current_json_for_hAgg = '''
+                                            {
+                                                "parentId": null,
+                                                "name": "%s",
+                                                "openstackId": "%s"
+                                            }
+                                        ''' % (hAggname, hAggname)
+                json_hAgg_names = json_hAgg_names + '\n' + current_json_for_hAgg
+
+            body = '''
+            {
+              "name": "%s",
+              "projectId": "%s",
+              "projectName": "%s",
+              "region": "%s",
+              "hosts": [],
+              "availabilityZones": [],
+              "hostAggregates": [
+                  %s
+              ],
+              "managementNetworkName": "%s",
+              "managementNetworkId": "%s",
+              "inspectionNetworkName": "%s",
+              "inspectionNetworkId": "%s",
+              "floatingIpPoolName" : %s,
+              "shared": "%s",
+              "count": "%s"
+            }''' % (dsname, projectId, projectName, region, json_hAgg_names, mgmtNetName, mgmtNetId, inspNetName, inspNetId, ippool, shared, count)
+
 
         self._output.log_debug("_deployOStackAppliance\n -- URL: \"%s\"\n -- Body:\'\'\'\n%s\n\'\'\'" %(url, body))
-        sleep(4)
 
         datafmt = "JSON"
         headers = datafmt
@@ -1533,7 +1648,9 @@ class ISC(object):
         self._output.log_debug("_deployOStackAppliance\n -- Sending %s Request for Action: %s:\n -- IP Addr: \"%s\"\n -- Headers: \"%s\"\n -- Method: \"%s\"\n -- URL: \"%s\"\n\n -- Body:\n%s" %(method, action, self.iscaddr, headers, method, url, body))
         data = self._isc_connection(method=method, url=url, body=body, action=action, headers=datafmt)
         self._output.log_debug("_deployOStackAppliance -- Returned 'data':\n%s\n\n%s" %(data, self._output.pformat(data)))
+
         return self._wait_for_job(data)
+
         #self._output.log_debug("_deployOStackAppliance -- Completed")
         #return data
     pass
@@ -1624,9 +1741,6 @@ class ISC(object):
         self._output.log_debug("deleteSecurityGroup\n -- Sending %s Request for Action: %s:\n -- IP Addr: \"%s\"\n -- Headers: \"%s\"\n -- Method: \"%s\"\n -- URL: \"%s\"\n\n -- Body:\n%s" %(method, action, self.iscaddr, headers, method, url, body))
         data = self._isc_connection('DELETE', delUrl, '', action, "JSON")
         return self._wait_for_job(data, "JSON")
-
-
-
 
     # Create an OpenStack Security Group.
     def _createOrUpdateSG(self, sg_obj, update_name_or_id=None):
@@ -1773,36 +1887,42 @@ class ISC(object):
 
 
 
-    # Add an instance to a security group. The API call for this is only capable of updating the membership,
-    # so existing members get passed in via the function after this one (_getSecurityGroupMembers).
-    # Returns standard _isc_connection data.
+    # Add values for parameter for each security group member
+    # returns dictionary of security group members with appropriate parameters set
     def _addSecurityGroupMember(self, vcid, sgid, memberName, region, openstackId, memberType, parentOpenStackId=None, protectExternal=False):
-        action = 'Add member to Security Group %s' % vcid
-        url = '/api/server/v1/virtualizationConnectors/%s/securityGroups/%s/members' % (vcid, sgid)
-        method = "PUT"
-        members = self._getSecurityGroupMembers(vcid, sgid)
-        self._output.log_debug("\n\n_addSecurityGroupMember --\n\nMembers:\n%s" %(self._output.pformat(members)))
-
         mbr_dict = {"name": memberName, "region":region, "openstackId":openstackId, "type":memberType, "parentOpenStackId":parentOpenStackId, "protectExternal":protectExternal}
         for k in list(mbr_dict.keys()):
             if mbr_dict[k] is None:
                 del(mbr_dict[k])
         pass
-        members.append(mbr_dict)
-        memberStr = json.dumps(members)
-        self._output.log_debug("\n\n_addSecurityGroupMember --\n\nMembers Str:\n%s" %(memberStr))
+        return mbr_dict
+    pass
+
+    # Add members to the security group in a single API call, list of members or a single member can be included in PUT API call
+    # '/api/server/v1/virtualizationConnectors/%s/securityGroups/%s/members'
+    # Returns standard _isc_connection data.
+    def _addSecurityGroupMembers(self, mbr_list, vcid, sgid):
+        action = 'Add member to Security Group %s' % vcid
+        url = '/api/server/v1/virtualizationConnectors/%s/securityGroups/%s/members' % (vcid, sgid)
+        method = "PUT"
+
+        self._output.log_debug("\n\n_addSecurityGroupMember --\n\nMembers:\n%s" % (self._output.pformat(mbr_list)))
+        #mbr_list.append(members)
+        #members.append(mbr_list)
+        memberStr = json.dumps(mbr_list)
+        body = '''
+        {
+          "members": %s,
+          "parentId": %s,
+          "id": %s
+        }''' % (memberStr, vcid, sgid)
+        self._output.log_debug("\n\n_addSecurityGroupMember --\n\nBody:\n%s" %(body))
+
+
+        self._output.log_debug("\n\n_addSecurityGroupMember --\n\nMembers Str:\n%s" % (memberStr))
 
         datafmt = "JSON"
         headers = datafmt
-
-        body = '''
-        {
-          "members":
-            %s,
-          "parentId": %s,
-          "id": %s,
-        }''' % (memberStr, vcid, sgid)
-        self._output.log_debug("\n\n_addSecurityGroupMember --\n\nBody:\n%s" %(body))
 
         self._output.log_debug("_addSecurityGroupMember\n -- Sending %s Request for Action: %s:\n -- IP Addr: \"%s\"\n -- Headers: \"%s\"\n -- Method: \"%s\"\n -- URL: \"%s\"\n\n -- Body:\n%s" %(method, action, self.iscaddr, headers, method, url, body))
         data = self._isc_connection("PUT", url, body, action, "JSON")
@@ -1824,14 +1944,17 @@ class ISC(object):
 
         macs_ip_dict = {}
         members = data
-        plist = [x['port'] for x in members]
-        for line in plist:
-            #nn = len(member)
-            #member = member[0]
-            for member in line:
-                amac = member.get("macAddress", 'NO_IP')
-                anip = member.get("ipAddress", 'NO_MAC')
-                macs_ip_dict[amac] = anip
+        try:
+            plist = [x['port'] for x in members]
+            for line in plist:
+                for member in line:
+                    amac = member.get("macAddress", 'NO_IP')
+                    anip = member.get("ipAddress", 'NO_MAC')
+                    macs_ip_dict[amac] = anip
+        except Exception as e:
+            self._output.log_debug("\n\n Port Key error ")
+
+
 
         if not members:
             members = []
@@ -1842,6 +1965,7 @@ class ISC(object):
         pass
 
         #self._output.log_info("Exit _getSecurityGroupMembers  for VC \"%s\"  SG \"%s\" -- Members:\n%s IPs:\n%s MACs:\n%s" %(vcid, sgid, self._output.pformat(members)), " ".join(str(x) for x in ips), " ".join(str(x) for x in macs))
+        #returns as a tuple, if assigned to single variable
         return members, macs_ip_dict
     pass
 
@@ -1868,10 +1992,10 @@ class ISC(object):
           "members":
             %s,
           "parentId": %s,
-          "id": %s,
+          "id": %s
         }''' % (memberStr, vcid, sgid)
 
-        self._output.log_debug("_removeecurityGroupMember\n -- Sending %s Request for Action: %s:\n -- IP Addr: \"%s\"\n -- Headers: \"%s\"\n -- Method: \"%s\"\n -- URL: \"%s\"\n\n -- Body:\n%s" %(method, action, self.iscaddr, headers, method, url, body))
+        self._output.log_debug("_removeSecurityGroupMember\n -- Sending %s Request for Action: %s:\n -- IP Addr: \"%s\"\n -- Headers: \"%s\"\n -- Method: \"%s\"\n -- URL: \"%s\"\n\n -- Body:\n%s" %(method, action, self.iscaddr, headers, method, url, body))
         data = self._isc_connection("PUT", url, body, action, "JSON")
         return self._wait_for_job(data, "JSON")
     pass
@@ -1887,30 +2011,21 @@ class ISC(object):
         datafmt = "JSON"
         headers = datafmt
 
-    #    body = '''
-    #    {
-    #      "name":"%s",
-    #      "members": null,
-    #      "id": %s,
-    #      "parentId": %s,
-    #      "api": false
-    #    }''' % (groupName, sgid, vcid)
-
         body = '''
                 {
-                  
+
                   "members": null,
                   "id": %s,
-                  "parentId": %s,
-                  "isApi": false
+
+
+                  "parentId": %s
                 }''' % (sgid, vcid)
 
-        self._output.log_debug("_removeecurityAllGroupMembers\n -- Sending %s Request for Action: %s:\n -- IP Addr: \"%s\"\n -- Headers: \"%s\"\n -- Method: \"%s\"\n -- URL: \"%s\"\n\n -- Body:\n%s" %(method, action, self.iscaddr, headers, method, url, body))
+        self._output.log_debug("_removesecurityAllGroupMembers\n -- Sending %s Request for Action: %s:\n -- IP Addr: \"%s\"\n -- Headers: \"%s\"\n -- Method: \"%s\"\n -- URL: \"%s\"\n\n -- Body:\n%s" %(method, action, self.iscaddr, headers, method, url, body))
         data = self._isc_connection("PUT", url, body, action, "JSON")
         return self._wait_for_job(data, "JSON")
 
     pass
-
 
 
     # Collect and return the membership data from a security group. This function is designed
@@ -2035,63 +2150,6 @@ class ISC(object):
     pass
 
 
-
-    # Bind a security group to the specified distributed appliance (da_id/da_name) and policy (policyID). The failurePolicy
-    # variable is used to determine whether we fail-open or fail-closed when a firewall is non-responsive.
-    def _bindPolicy(self, vcid, da_id, sgid, daname, policyId, failurePolicy, order, is_binded):
-        vs_id = self.getVSIDsforDAID(da_id)
-        action = 'Bind policy %s to DA %s' % (policyId, da_id)
-        url = '/api/server/v1/virtualizationConnectors/%s/securityGroups/%s/bindings' % (vcid, sgid)
-        method = "PUT"
-        policies = self.getPoliciesByDaId(da_id)
-        policies = json.dumps(policies)
-
-        datafmt = "JSON"
-        headers = datafmt
-
-        body = '''
-        {
-            "virtualSystemId": "%s",
-            "name": "%s",
-            "policyId": "%s",
-            "failurePolicyType": "%s",
-            "order": "%s",
-            "policies": %s,
-            "isBinded": "%s",
-            "markedForDeletion": false
-        }''' % (vs_id,
-                daname,
-                policyId,
-                failurePolicy,
-                order,
-                policies,
-                map_to_json_str(is_binded))
-
-        ##print("\n\nBind Policy -- URL: \"%s\"\n\nBody:\n%s\n\n" %(url, body))
-        self._output.log_debug("_bindPolicy\n -- Sending %s Request for Action: %s:\n -- IP Addr: \"%s\"\n -- Headers: \"%s\"\n -- Method: \"%s\"\n -- URL: \"%s\"\n\n -- Body:\n%s" %(method, action, self.iscaddr, headers, method, url, body))
-        self._output.log_debug("_bindPolicy\n -- Sending %s Request for Action: %s:\n -- IP Addr: \"%s\"\n -- Headers: \"%s\"\n -- Method: \"%s\"\n -- URL: \"%s\"\n\n -- Body:\n%s" %(method, action, self.iscaddr, headers, method, url, body))
-        data = self._isc_connection("PUT", url, body, action, "JSON")
-        self._output.log_error("Exit _bindPolicy")
-        return self._wait_for_job(data, "JSON")
-    pass
-
-
-
-    # Unbind the policy from the specified Security Group
-    def unbindAllSgPolicies(self, vcid, sgid):
-        url = '/api/server/v1/virtualizationConnectors/%s/securityGroups/%s/bindings' % (vcid, sgid)
-        action = 'Unbind all policies from SG %s' % sgid
-        method = "PUT"
-        datafmt = "JSON"
-        headers = datafmt
-        headers = 'JSON'
-        body = 'null'
-
-        self._output.log_debug("unbindAllSgPolicies\n -- Sending %s Request for Action: %s:\n -- IP Addr: \"%s\"\n -- Headers: \"%s\"\n -- Method: \"%s\"\n -- URL: \"%s\"\n\n -- Body:\n%s" %(method, action, self.iscaddr, headers, method, url, body))
-        data = self._isc_connection("PUT", url, body, action, "JSON")
-        return self._wait_for_job(data, "JSON")
-
-    pass
 
 
 
@@ -2983,7 +3041,7 @@ class ISC(object):
     def getDistributedApplianceDataById(self, da_id):
         mc_nm_to_id = self.getManagerConnectors()
         mc_id_to_nm = { v:k for k,v in mc_nm_to_id.items() }
-        url = '/api/server/v1/distributedAppliances'
+        url = '/api/server/v1/distributedAppliances/%s' %(da_id)
         ##da_data = self.getQueryData(url)
         da_data = self.getQueryData(url, skipSingletonDict=True, maxDepth=None)
         self._output.log_debug("getDistributedApplianceDataById -- da_data:\n%s" %(self._output.pformat(da_data)))
@@ -3812,6 +3870,7 @@ class ISC(object):
         if isinstance(binding_data_for_vs, dict):
             binding_data_for_vs = [ binding_data_for_vs ]
         pass
+        sg_id = 0 # initialization
         binding_data_for_vs = (binding_data_for_vs or [])
         out_table = []
         binding_data_for_vs = [ x for x in binding_data_for_vs if ('securityGroupId' in x) and x['securityGroupId'] ]
@@ -3840,10 +3899,8 @@ class ISC(object):
     pass
 
 
-
-
-    def getAllSGBindingsTable(self, vc_name_or_id=None, vs_name_or_id=None, da_name_or_id=None, sg_name_or_id=None, binding_name_or_id=None, policy_name_or_id=None):
-        _funcargs = { 'vc_name_or_id':vc_name_or_id, 'vs_name_or_id':vs_name_or_id, 'da_name_or_id':da_name_or_id, 'sg_name_or_id':sg_name_or_id, 'binding_name_or_id':binding_name_or_id, 'policy_name_or_id':policy_name_or_id }
+    def getAllSGBindingsTable(self, vc_name_or_id=None, vs_name_or_id=None, da_name_or_id=None, sg_name_or_id=None, binding_name_or_id=None, policy_name_or_id_list=None):
+        _funcargs = { 'vc_name_or_id':vc_name_or_id, 'vs_name_or_id':vs_name_or_id, 'da_name_or_id':da_name_or_id, 'sg_name_or_id':sg_name_or_id, 'binding_name_or_id':binding_name_or_id, 'policy_name_or_id_list':policy_name_or_id_list }
         self._output.log_debug("Enter getAllSGBindingsTable -- Func Args:\n%s" %(self._output.pformat(_funcargs)))
         sg_table = self.getAllSecGrpsTable(vc_name_or_id=vc_name_or_id, vs_name_or_id=vs_name_or_id, da_name_or_id=da_name_or_id, sg_name_or_id=sg_name_or_id)
         if not sg_table:
@@ -3851,6 +3908,7 @@ class ISC(object):
         elif isinstance(sg_table, dict):
             sg_table = [ sg_table ]
         pass
+        self._output.log_info("getAllSGBindingsTable -- Func Args:\n%s" % (self._output.pformat(sg_table)))
         self._output.log_debug("getAllSGBindingsTable -- Func Args:\n%s" %(self._output.pformat(sg_table)))
         out_table = []
         for sg_row in sg_table:
@@ -3873,7 +3931,7 @@ class ISC(object):
             binding_for_vc = self.getSecurityGroupBindingsViaVirtConn(vc_id, sg_id)
             self._output.log_debug("getAllSGBindingsTable -- Bindings Via VirtConn  VC \"%s\"  SG \"%s\":\n%s" %(vc_id, sg_id, self._output.pformat(binding_for_vc)))
             if binding_for_vc:
-                is_binded = binding_for_vc['isBinded']
+                is_binded = binding_for_vc['memberList'][0]['binded']
             pass
             self._output.log_debug("getAllSGBindingsTable -- Bindings Via VirtSys (SG Interfaces)  VS \"%s\"  SG %s:\n%s" %(vs_id, sg_id, self._output.pformat(bindings_for_vs_table)))
             ##sg_available_policies = binding_for_vc['policies']
@@ -3884,13 +3942,16 @@ class ISC(object):
                 tbl_row = copy.copy(sgb)
                 binding_id = tbl_row['id']
                 binding_name = tbl_row['name']
-                policy_id = tbl_row['policyId']
-                policy_name = tbl_row['policyName']
+                policy_list = tbl_row['policies']
+                policy_id_list = []
+                policy_name_list = []
+                for policy in policy_list:
+                    policy_id_list.append(policy['id'])
+                    policy_name_list.append(policy['policyName'])
+
                 tbl_row['binding_id'] = binding_id
                 tbl_row['binding_name'] = binding_name
-                tbl_row['is_binded'] = is_binded
                 tbl_row['binded'] = is_binded
-                tbl_row['isBinded'] = is_binded
                 tbl_row['binding_id'] = binding_id
                 for k,v in sg_row.items():
                     tbl_row[k] = v
@@ -3899,30 +3960,33 @@ class ISC(object):
                 if isinstance(sg_available_policies, dict):
                     sg_available_policies = [ sg_available_policies ]
 
-                sg_matching_available_policies = [ x for x in sg_available_policies if (x['policyName'].lower() == policy_name.lower()) ]
-                matching_policy = sg_matching_available_policies[0]
-                self._output.log_debug("Matching Policy:\n%s" %(self._output.pformat(matching_policy)))
-                for k,v in matching_policy.items():
-                    tbl_row[k] = v
-                mgr_domain_id = tbl_row['mgrDomainId']
-                mgr_domain_name = tbl_row['mgrDomainName']
-                mgr_policy_id = tbl_row['mgrPolicyId']
-                self._output.log_debug("getAllSGBindingsTable -- Table Row:\n%s" %(self._output.pformat(tbl_row)))
-                policy_info_keys = [ 'id', 'policyName', 'mgrPolicyId', 'mgrDomainId', 'mgrDomainName' ]
-                policy_info = { k:tbl_row[k] for k in policy_info_keys }
-                tbl_row['policy_info'] = policy_info
-                if vc_name_or_id and (vc_name_or_id not in [vc_id, vc_name]):
-                    break
-                if vs_name_or_id and (vs_name_or_id not in [vs_id, vs_name]):
-                    break
-                if da_name_or_id and (da_name_or_id not in [da_id, da_name]):
-                    break
-                if sg_name_or_id and (sg_name_or_id not in [sg_id, sg_name]):
-                    break
-                if policy_name_or_id and (policy_name_or_id not in [policy_id, policy_name]):
-                    break
-                if binding_name_or_id and (binding_name_or_id not in [binding_id, binding_name]):
-                    break
+                if isinstance(policy_name_or_id_list, list):
+                    sg_matching_available_policies = [ x for x in sg_available_policies if (x['policyName'] in policy_name_or_id_list) ]
+
+                    matching_policy = sg_matching_available_policies[0]
+                    self._output.log_debug("Matching Policy:\n%s" %(self._output.pformat(matching_policy)))
+                    for k,v in matching_policy.items():
+                        tbl_row[k] = v
+                    mgr_domain_id = tbl_row['mgrDomainId']
+                    mgr_domain_name = tbl_row['mgrDomainName']
+                    mgr_policy_id = tbl_row['mgrPolicyId']
+                    self._output.log_debug("getAllSGBindingsTable -- Table Row:\n%s" %(self._output.pformat(tbl_row)))
+                    policy_info_keys = [ 'id', 'policyName', 'mgrPolicyId', 'mgrDomainId', 'mgrDomainName' ]
+                    policy_info = { k:tbl_row[k] for k in policy_info_keys }
+                    tbl_row['policy_info'] = policy_info
+                    if vc_name_or_id and (vc_name_or_id not in [vc_id, vc_name]):
+                        break
+                    if vs_name_or_id and (vs_name_or_id not in [vs_id, vs_name]):
+                        break
+                    if da_name_or_id and (da_name_or_id not in [da_id, da_name]):
+                        break
+                    if sg_name_or_id and (sg_name_or_id not in [sg_id, sg_name]):
+                        break
+                    if policy_name_or_id_list and (policy_name_or_id_list not in [policy_id, policy_name]):
+                        break
+                    if binding_name_or_id and (binding_name_or_id not in [binding_id, binding_name]):
+                        break
+
                 out_table.append(tbl_row)
             pass
         pass
@@ -4023,8 +4087,6 @@ class ISC(object):
         return(sg_bdg_data)
     pass
 
-
-
     def addSecurityGroupMemberObj(self, sg_mbr, ostack_cred=None):
         self._output.log_debug("Enter addSecurityGroupMember -- sg_mbr:\n%s" %(self._output.objformat(sg_mbr)))
         if not isinstance(sg_mbr, forrobot.sgMbr):
@@ -4039,7 +4101,15 @@ class ISC(object):
         self._output.log_debug("addSecurityGroupMemberObj -- Calling getAllSecGrpsTable with sg_name: \"%s\"" %(sg_name))
         sg_table = self.getAllSecGrpsTable(sg_name_or_id=sg_name)
         self._output.log_debug("addSecurityGroupMemberObj -- sg_table:\n%s" %(self._output.pformat(sg_table)))
-        sg_elt = sg_table[0]
+
+        sg_elt = None
+        for sg_item in sg_table:
+            if sg_item['sg_name'] == sg_name:
+                sg_elt = sg_item
+
+        if sg_elt == None:
+            self._output.log_error("No such security groups with the sg_name: %s" %(sg_name))
+        
         sg_id = sg_elt['sg_id']
         sg_name = sg_elt['sg_name']
         vc_id = sg_elt['vc_id']
@@ -4048,7 +4118,7 @@ class ISC(object):
         ostack_ip = vc_data['providerIP']
         self._output.log_debug("VC Data: \n%s\n\n%s" %(self._output.pformat(vc_data), ostack_ip))
         if not ostack_cred:
-            ostack_cred = {'auth_ip':ostack_ip, 'user_domain_name':'demo'}
+            ostack_cred = {'auth_ip':ostack_ip, 'user_domain_name':'admin'}
             #ostack_cred = {'auth_ip': ostack_ip}
             self._output.log_debug("addSecurityGroupMemberObj -- Ostack Cred[1]:\n%s" %(self._output.pformat(ostack_cred)))
         pass
@@ -4058,39 +4128,87 @@ class ISC(object):
         self._output.log_debug("addSecurityGroupMemberObj -- Ostack Session: %s\n%s" %(ostk_session, self._output.objformat(ostk_session)))
         curr_mbrs, macs_ip_dict = self._getSecurityGroupMembers(vc_id, sg_id)
         self._output.log_debug("Current Members:\n%s" %(self._output.pformat(curr_mbrs)))
+        mbr_list, macs_ip_dict = self._getSecurityGroupMembers(vc_id, sg_id)
         if mbr_type == 'VM':
-            instance_name_or_id = mbr_name
-    #        instance_nm_to_id = get_instances(session=ostk_session)
-    #        nm_id = { k:v for k,v in instance_nm_to_id.items() if (k == instance_name_or_id) or (v == instance_name_or_id) }
-    #        instance_name  = nm_id.keys()[0]
-    #        instance_id  = nm_id.values()[0]
-            ##instance_table = instance_list(ostack_cred=ostack_cred, match_str=instance_name_or_id)
             instance_table = instance_list(ostack_cred=ostack_cred)
-            instance_table = [ x for x in instance_table if (x['name'] == instance_name_or_id) or (x['id'] == instance_name_or_id) ]
-            if not instance_table:
-                self._output.log_error("addSecurityGroupMemberObj -- 'VM' type\n -- No instance named \"%s\" found" %(instance_name_or_id))
-            instance_dict = instance_table[0]
-            instance_name = instance_dict['name']
-            instance_id = instance_dict['id']
-            openstackId = instance_id
-            self._output.log_debug("New VM Member:\nInstance Id: \"%s\"\n\nNew VM Member:\n%s\n\nInstance Info:\n%s" %(instance_id, self._output.pformat(sg_mbr), self._output.pformat(instance_dict)))
-            self._addSecurityGroupMember(vc_id, sg_id, mbr_name, region_name, openstackId, mbr_type)
+            if mbr_name.startswith('vms'):
+                pos = mbr_name.find(':')
+                member_names = mbr_name[pos + 1:].split(',')
+                for mem_name in member_names:
+                    instance_name_or_id = mem_name
+                    instance_selected = [x for x in instance_table if
+                                      (x['name'] == instance_name_or_id) or (x['id'] == instance_name_or_id)]
+                    if not instance_selected:
+                        self._output.log_error(
+                            "addSecurityGroupMemberObj -- 'VM' type\n -- No instance named \"%s\" found" % (
+                            instance_name_or_id))
+                    instance_dict = instance_selected[0]
+                    instance_name = instance_dict['name']
+                    instance_id = instance_dict['id']
+                    openstackId = instance_id
+                    self._output.log_debug(
+                        "New VM Member:\nInstance Id: \"%s\"\n\nNew VM Member:\n%s\n\nInstance Info:\n%s" % (
+                        instance_id, self._output.pformat(sg_mbr), self._output.pformat(instance_dict)))
+                    mbr_list.append(
+                        self._addSecurityGroupMember(vc_id, sg_id, mbr_name, region_name, openstackId, mbr_type))
+                self._addSecurityGroupMembers(mbr_list, vc_id, sg_id)
+
+            else:
+                instance_name_or_id = mbr_name
+
+                instance_table = [ x for x in instance_table if (x['name'] == instance_name_or_id) or (x['id'] == instance_name_or_id) ]
+                if not instance_table:
+                    self._output.log_error("addSecurityGroupMemberObj -- 'VM' type\n -- No instance named \"%s\" found" %(instance_name_or_id))
+                instance_dict = instance_table[0]
+                instance_name = instance_dict['name']
+                instance_id = instance_dict['id']
+                openstackId = instance_id
+                self._output.log_debug("New VM Member:\nInstance Id: \"%s\"\n\nNew VM Member:\n%s\n\nInstance Info:\n%s" %(instance_id, self._output.pformat(sg_mbr), self._output.pformat(instance_dict)))
+                mbr_list.append(self._addSecurityGroupMember(vc_id, sg_id, mbr_name, region_name, openstackId, mbr_type))
+                self._addSecurityGroupMembers(mbr_list, vc_id, sg_id)
         elif mbr_type == 'NETWORK':
             self._output.log_debug("addSecurityGroupMemberObj -- Add 'NETWORK' type member: \"%s\"" %(mbr_name))
-            network_name_or_id = mbr_name
             network_table = network_list(ostack_cred=ostack_cred)
-            network_table = [ x for x in network_table if (x['name'] == network_name_or_id) or (x['id'] == network_name_or_id) ]
-            if not network_table:
-                self._output.log_error("addSecurityGroupMemberObj -- 'NETWORK' type\n -- No network named \"%s\" found" %(network_name_or_id))
-            network_dict = network_table[0]
-            network_name = network_dict['name']
-            network_id = network_dict['id']
-            openstackId = network_id
-            self._output.log_debug("Network Name: \"%s\"" %(network_name))
-            self._output.log_debug("Network Id: \"%s\"" %(network_id))
-            self._output.log_debug("Network Dict: \"%s\"" %(self._output.pformat(network_dict)))
-            self._output.log_debug("Network Table: \"%s\"" %(self._output.pformat(network_table)))
-            self._addSecurityGroupMember(vc_id, sg_id, mbr_name, region_name, openstackId, mbr_type)
+            if mbr_name.startswith('networks'):
+                pos = mbr_name.find(':')
+                member_names = mbr_name[pos + 1:].split(',')
+
+                for mem_name in member_names:
+                    network_name_or_id = mem_name
+
+                    network_selected = [x for x in network_table if
+                                     (x['name'] == network_name_or_id) or (x['id'] == network_name_or_id)]
+                    self._output.log_debug("Network Table: \"%s\"" % (self._output.pformat(network_selected)))
+                    if not network_selected:
+                        self._output.log_error(
+                            "addSecurityGroupMemberObj -- 'NETWORK' type\n -- No network named \"%s\" found" % (
+                            network_name_or_id))
+                    network_dict = network_selected[0]
+                    network_name = network_dict['name']
+                    network_id = network_dict['id']
+                    openstackId = network_id
+                    self._output.log_debug("Network Name: \"%s\"" % (network_name))
+                    self._output.log_debug("Network Id: \"%s\"" % (network_id))
+                    self._output.log_debug("Network Dict: \"%s\"" % (self._output.pformat(network_dict)))
+                    self._output.log_debug("Network Table: \"%s\"" % (self._output.pformat(network_selected)))
+                    mbr_list.append(self._addSecurityGroupMember(vc_id, sg_id, mem_name, region_name, openstackId, mbr_type))
+                self._addSecurityGroupMembers(mbr_list, vc_id, sg_id)
+
+            else:
+                network_name_or_id = mbr_name
+                network_table = [ x for x in network_table if (x['name'] == network_name_or_id) or (x['id'] == network_name_or_id) ]
+                if not network_table:
+                    self._output.log_error("addSecurityGroupMemberObj -- 'NETWORK' type\n -- No network named \"%s\" found" %(network_name_or_id))
+                network_dict = network_table[0]
+                network_name = network_dict['name']
+                network_id = network_dict['id']
+                openstackId = network_id
+                self._output.log_debug("Network Name: \"%s\"" %(network_name))
+                self._output.log_debug("Network Id: \"%s\"" %(network_id))
+                self._output.log_debug("Network Dict: \"%s\"" %(self._output.pformat(network_dict)))
+                self._output.log_debug("Network Table: \"%s\"" %(self._output.pformat(network_table)))
+                mbr_list.append(self._addSecurityGroupMember(vc_id, sg_id, mbr_name, region_name, openstackId, mbr_type))
+                self._addSecurityGroupMembers(mbr_list, vc_id, sg_id)
         elif mbr_type == 'SUBNET':
             self._output.log_debug("addSecurityGroupMemberObj -- Add 'SUBNET' type member: \"%s\"" %(mbr_name))
             subnet_name_or_id = mbr_name
@@ -4107,12 +4225,12 @@ class ISC(object):
             self._output.log_debug("Subnet Id: \"%s\"" %(subnet_id))
             self._output.log_debug("Subnet Dict: \"%s\"" %(self._output.pformat(subnet_dict)))
             self._output.log_debug("Subnet Table: \"%s\"" %(self._output.pformat(subnet_table)))
-            self._addSecurityGroupMember(vc_id, sg_id, mbr_name, region_name, openstackId, mbr_type, parentOpenStackId=network_id, protectExternal=protect_external)
-
+            mbr_list.append(self._addSecurityGroupMember(vc_id, sg_id, mbr_name, region_name, openstackId, mbr_type, parentOpenStackId=network_id, protectExternal=protect_external))
+            self._addSecurityGroupMembers(mbr_list, vc_id, sg_id)
         else:
             self._output.log_debug("addSecurityGroupMemberObj -- Member Type \"%s\" Not yet implemented" %(mbr_type))
         pass
-        mbr_list, macs_ip_dict = self.getAllSecurityGroupMembers(sg_name_or_id=sg_name)
+        mbr_list = self.getAllSecurityGroupMembers(sg_name_or_id=sg_name)
         self._output.log_debug("addSecurityGroupMemberObj -- SG Members:\n%s" %(self._output.pformat(mbr_list)))
 
 
@@ -4136,6 +4254,12 @@ class ISC(object):
 
     def getAllSecurityGroupMembers(self, sg_name_or_id=None, vc_name_or_id=None):
         self._output.log_debug("Enter getAllSecurityGroupMembers")
+        sg_mbrs, macs_ip_dict = self.getAllSecurityGroupMembersMacIps(sg_name_or_id, vc_name_or_id)
+        return sg_mbrs
+    pass
+
+    def getAllSecurityGroupMembersMacIps(self, sg_name_or_id=None, vc_name_or_id=None):
+        self._output.log_debug("Enter getAllSecurityGroupMembersMacIps")
         _funcargs = {'sg_name_or_id':sg_name_or_id, 'vc_name_or_id':vc_name_or_id}
         sg_table = self.getAllSecGrpsTable(sg_name_or_id=sg_name_or_id, vc_name_or_id=vc_name_or_id)
         sg_mbrs = []
@@ -4148,7 +4272,7 @@ class ISC(object):
             sg_name = sec_grp['sg_name']
             sg_mbrs, macs_ip_dict = self._getSecurityGroupMembers(vc_id, sg_id)
 
-        self._output.log_info("Exit getAllSecurityGroupMembers\n -- Func Args:\n%s\n -- Returning:\n%s" %(self._output.pformat(_funcargs), self._output.pformat(sg_mbrs)))
+        self._output.log_info("Exit getAllSecurityGroupMembersMacIps\n -- Func Args:\n%s\n -- Returning:\n%s %s" %(self._output.pformat(_funcargs), self._output.pformat(sg_mbrs), self._output.pformat(macs_ip_dict)))
         return sg_mbrs, macs_ip_dict
     pass
 
@@ -4185,6 +4309,10 @@ class ISC(object):
         if isinstance(policy_info, dict):
             policy_info = [ policy_info ]
         policy_info_str = json.dumps(policy_info)
+
+        if failurePolicy == 0:
+            failurePolicy = 'NA'
+
         json_body = '''
     {
         "name": "%s",
@@ -4218,25 +4346,16 @@ class ISC(object):
     ## def addSecurityGroupBinding(self, sg_bdg, ostack_cred=None):
     def addSecurityGroupBindingViaVirtSys(self, sg_bdg):
         self._output.log_debug("Enter addSecurityGroupBindingViaVirtSys -- sg_bdg:\n%s" %(self._output.objformat(sg_bdg)))
-        self._output.log_debug("Enter addSecurityGroupBindingViaVirtSys -- sg_bdg:\n%s" %(self._output.objformat(sg_bdg)))
-        self._output.log_debug("Enter addSecurityGroupBindingViaVirtSys -- sg_bdg:\n%s" %(self._output.objformat(sg_bdg)))
-        self._output.log_debug("Enter addSecurityGroupBindingViaVirtSys -- sg_bdg:\n%s" %(self._output.objformat(sg_bdg)))
-        self._output.log_debug("Enter addSecurityGroupBindingViaVirtSys -- sg_bdg:\n%s" %(self._output.objformat(sg_bdg)))
-        self._output.log_debug("Enter addSecurityGroupBindingViaVirtSys -- sg_bdg:\n%s" %(self._output.objformat(sg_bdg)))
-        self._output.log_debug("Enter addSecurityGroupBindingViaVirtSys -- sg_bdg:\n%s" %(self._output.objformat(sg_bdg)))
-        self._output.log_debug("Enter addSecurityGroupBindingViaVirtSys -- sg_bdg:\n%s" %(self._output.objformat(sg_bdg)))
-        self._output.log_debug("Enter addSecurityGroupBindingViaVirtSys -- sg_bdg:\n%s" %(self._output.objformat(sg_bdg)))
-        self._output.log_debug("Enter addSecurityGroupBindingViaVirtSys -- sg_bdg:\n%s" %(self._output.objformat(sg_bdg)))
-        self._output.log_debug("Enter addSecurityGroupBindingViaVirtSys -- sg_bdg:\n%s" %(self._output.objformat(sg_bdg)))
-        self._output.log_debug("Enter addSecurityGroupBindingViaVirtSys -- sg_bdg:\n%s" %(self._output.objformat(sg_bdg)))
-        self._output.log_debug("Enter addSecurityGroupBindingViaVirtSys -- sg_bdg:\n%s" %(self._output.objformat(sg_bdg)))
         sg_name          = sg_bdg.sg_name
         da_name          = sg_bdg.da_name
         binding_name     = sg_bdg.binding_name
-        policy_name      = sg_bdg.policy_name
+        policy_names     = sg_bdg.policy_names
         is_binded        = sg_bdg.is_binded
         tag_value        = sg_bdg.tag_value
         failure_policy   = sg_bdg.failure_policy
+        if failure_policy == 0:
+            failure_policy = 'NA'
+
         policy_order     = sg_bdg.policy_order
         self._output.log_debug("addSecurityGroupBindingViaVirtSys -- Calling getAllSecGrpsTable with sg_name: \"%s\"" %(sg_name))
         sg_table = self.getAllSecGrpsTable(sg_name_or_id=sg_name)
@@ -4248,6 +4367,10 @@ class ISC(object):
         vc_id = sg_elt['vc_id']
         vc_name = sg_elt['vc_name']
         vc_data = self.getVirtualizationConnectorDataById(vc_id)
+        use_sfc = False
+        if vc_data['controllerType'] == 'Neutron-sfc':
+            use_sfc = True
+
         ostack_ip = vc_data['providerIP']
         self._output.log_debug("VC Data: \n%s\n\n%s" %(self._output.pformat(vc_data), ostack_ip))
 
@@ -4272,34 +4395,80 @@ class ISC(object):
         if isinstance(sg_available_policies, dict):
             sg_available_policies = [ sg_available_policies ]
 
-        self._output.log_debug("addSecurityGroupBindingViaVirtSys -- Returned from 'getAvailablePoliciesForVsId'  VS \"%s\"\n -- Policy Name \"%s\"\n -- sg_available_policies:\n%s" %(vs_id, policy_name, self._output.pformat(sg_available_policies)))
-        sg_matching_available_policies = [ x for x in sg_available_policies if (x['policyName'].lower() == policy_name.lower()) ]
-        avail_policy = sg_matching_available_policies[0]
-        mgr_domain_id = avail_policy['mgrDomainId']
-        mgr_domain_name = avail_policy['mgrDomainName']
-        mgr_policy_id = avail_policy['mgrPolicyId']
-        policy_id = avail_policy['id']
-        sg_new_policy = { 'mgrDomainId':mgr_domain_id, 'mgrDomainName':mgr_domain_name, 'mgrPolicyId':mgr_policy_id, 'id':policy_id, 'policyName':policy_name }
-###        sg_existing_bdgs = oscx.getAllSGBindingsTableViaVirtSys(vc_name_or_id=vs_id, da_name_or_id=da_id, sg_name_or_id=sg_id)
+        self._output.log_debug("addSecurityGroupBindingViaVirtSys -- Returned from 'getAvailablePoliciesForVsId'  VS \"%s\"\n -- Policy Names \"%s\"\n -- sg_available_policies:\n%s" %(vs_id, str(policy_names), self._output.pformat(sg_available_policies)))
+        sg_matching_available_policies = [ x for x in sg_available_policies if (x['policyName'] in policy_names) ]
 
-        sg_new_bdg = { 'failurePolicyType':failure_policy, 'name':binding_name, 'order':policy_order, 'policyName':policy_name, 'policyId':policy_id, 'securityGroupId': sg_id, 'securityGroupName': sg_name, 'tagValue': tag_value, 'isBinded':is_binded, 'virtualSystemId':vs_id }
-        sg_new_bdg['policies'] = [ sg_new_policy ]
+        sg_new_policy_list = []
+        policy_id_list = []
+        for avail_policy in sg_matching_available_policies:
+            mgr_domain_id = avail_policy['mgrDomainId']
+            mgr_domain_name = avail_policy['mgrDomainName']
+            mgr_policy_id = avail_policy['mgrPolicyId']
+            policy_id = avail_policy['id']
+            policy_name = avail_policy['policyName']
+            sg_new_policy_list = []
+            sg_new_policy = { 'mgrDomainId':mgr_domain_id,
+                              'mgrDomainName':mgr_domain_name,
+                              'mgrPolicyId':mgr_policy_id,
+                              'id':policy_id, 'policyName':policy_name
+                            }
+            sg_new_policy_list.append(sg_new_policy)
+            policy_id_list.append(policy_id)
 
+        self._output.log_debug("sfc name is: %s" % (sg_bdg.sfc_name))
+        if use_sfc:
+            if not sg_bdg.sfc_name:
+                self._output.log_error("No SFC name in sg_bdg with name %s" % (sg_bdg.sg_name))
+            else:
+                sfc = self.get_sfc_by_name( vc_id, sg_bdg.sfc_name)
+                self._output.log_debug("addSecurityGroupBindingViaVirtSys -- Returned from 'get_sfc_by_name(%s, %s)" % (vc_id, sg_bdg.sfc_name))
+                self._output.log_debug("sfc = %s" % (sfc))
+                self._output.log_debug("sfcid = %s" % (sfc['id']))
+
+                sfc_id = sfc['id']
+                vs_data_list = sfc['virtualSystemDto']
+                vs_id = vs_data_list[0]['id']
+
+            sg_new_bdg = { 'policies': sg_new_policy_list,
+                           'name':binding_name,
+                           'policyIds':policy_id_list,
+                           'virtualSystemId':vs_id }
+        else:
+            sg_new_bdg = {'policies': sg_new_policy_list,
+                          'failurePolicyType': failure_policy,
+                          'name': binding_name,
+                          'order': policy_order,
+                          'policyIds': policy_id_list,
+                          'binded': is_binded,
+                          'virtualSystemId': vs_id}
+
+        self._output.log_debug(policy_names)
+
+       
 ####        self._bindPolicy(vc_id, da_id, sg_id, da_name, policy_id, failure_policy, policy_order)
 
 ##        self._output.log_debug("addSecurityGroupBindingViaVirtSys -- Calling 'createSecGrpInterfaceViaVirtSys'")
 ##        self.createSecGrpInterfaceViaVirtSys(vs_id=vs_id, bindingName=binding_name, policyName=policy_name, policyId=policy_id, tagValue=tag_value, secGrpName=sg_name, sg_id=sg_id, failurePolicy=failure_policy, order=policy_order, policy_info=sg_new_bdg)
 ##        self._output.log_debug("addSecurityGroupBindingViaVirtSys -- Returned from: 'createSecGrpInterfaceViaVirtSys'")
 
-        body_struct = { 'virtualSystemPolicyBinding':sg_new_bdg }
+   #     body_struct = { 'virtualSystemPolicyBinding':sg_new_bdg }
+        body_struct = [sg_new_bdg]
+
         json_body = json.dumps(body_struct)
 
         datafmt = "JSON"
         headers = datafmt
         body = json_body
-        url = '/api/server/v1/virtualizationConnectors/%s/securityGroups/%s/bindings' % (vc_id, sg_id)
+
+        if use_sfc:
+            url = '/api/server/v1/virtualizationConnectors/%s/securityGroups/%s/sfc/%s/bindings' % (vc_id, sg_id, sfc_id)
+            action = "Bind Policy to SG %s VC %s with SFC %s" % (sg_id, vc_id, sfc_id)
+        else:
+            url = '/api/server/v1/virtualizationConnectors/%s/securityGroups/%s/bindings' % (vc_id, sg_id)
+            action = "Bind Policy to SG %s VC %s" % (sg_id, vc_id)
+
         method = "PUT"
-        action = "Bind Policy to SG %s VC %s" %(sg_id, vc_id)
+
         self._output.log_debug("addSecurityGroupBindingViaVirtSys -- URL: \"%s\\n\nBody:\n%s\n\n" %(url, body))
         self._output.log_debug("addSecurityGroupBindingViaVirtSys\n -- Sending %s Request for Action: %s:\n -- IP Addr: \"%s\"\n -- Headers: \"%s\"\n -- Method: \"%s\"\n -- URL: \"%s\"\n\n -- Body:\n%s" %(method, action, self.iscaddr, headers, method, url, body))
         data = self._osc_http_conn(method=method, url=url, body=body, action=action, datafmt=datafmt)
@@ -4330,17 +4499,26 @@ class ISC(object):
 
 
     def removeAllSecurityGroupBindingsViaVirtConn(self, vc_id=None, sg_id=None):
-        url = '/api/server/v1/virtualizationConnectors/%s/securityGroups/%s/bindings' % (vc_id, sg_id)
-        method = "PUT"
-        action = "Bind Policy to SG %s VC %s" %(sg_id, vc_id)
+        vc_data = self.getVirtualizationConnectorDataById(vc_id)
+        use_sfc = False
+        if vc_data['controllerType'] == 'Neutron-sfc':
+            use_sfc = True
+
+        url = None
+        body = ''
         datafmt = "JSON"
         headers = datafmt
 
-        json_body = '''
-    {
-    }
-    '''
-        body = json_body
+        if use_sfc:
+            url = '/api/server/v1/virtualizationConnectors/%s/securityGroups/%s/sfc' % (vc_id, sg_id)
+            method = "DELETE"
+            action = "Unbind Policies from SG %s VC %s" % (sg_id, vc_id)
+        else:
+            url = '/api/server/v1/virtualizationConnectors/%s/securityGroups/%s/bindings' % (vc_id, sg_id)
+            method = "PUT"
+            action = "Unbind Policies from SG %s VC %s" % (sg_id, vc_id)
+            body = '[]'
+
         self._output.log_debug("removeAllSecurityGroupBindingsViaVirtConn -- URL: \"%s\\n\nBody:\n%s\n\n" %(url, body))
         self._output.log_debug("removeAllSecurityGroupBindingsViaVirtConn\n -- Sending %s Request for Action: %s:\n -- IP Addr: \"%s\"\n -- Headers: \"%s\"\n -- Method: \"%s\"\n -- URL: \"%s\"\n\n -- Body:\n%s" %(method, action, self.iscaddr, headers, method, url, body))
         data = self._osc_http_conn(method=method, url=url, body=body, action=action, datafmt=datafmt)
@@ -4559,8 +4737,6 @@ class ISC(object):
         return(out_table)
     pass
 
-
-
     def getAllSecGrpsData(self, vc_name_or_id=None, vs_name_or_id=None, da_name_or_id=None, sg_name_or_id=None, da_table=None):
         _funcargs = { 'vc_name_or_id':vc_name_or_id, 'vs_name_or_id':vs_name_or_id, 'da_name_or_id':da_name_or_id, 'sg_name_or_id':sg_name_or_id }
         self._output.log_debug("Enter getAllSecGrpsData -- Func Args:\n%s" %(self._output.pformat(_funcargs)))
@@ -4581,10 +4757,6 @@ class ISC(object):
         return out_sg_data
     pass
 
-
-
-
-
     def getSecGrpIdListByVcId(self, vc_id):
         url = "/api/server/v1/virtualizationConnectors/%s/securityGroups" %(vc_id)
         self._output.log_debug("getSecGrpIdListByVcId -- calling 'getQueryDict'")
@@ -4596,6 +4768,160 @@ class ISC(object):
         return(sg_ids)
     pass
 
+    def createSFC(self, sfc):   #vc_id, sfcname, vs_id ):
+        vc_id = sfc.vcid
+        vs_id = sfc.vsid
+        sfcname = sfc.name
+
+        action = 'Create a SFC'
+        body = ''
+        if not vs_id:
+            url = '/api/server/v1/virtualizationConnectors/%s/serviceFunctionChain' % (vc_id)
+            body = """
+            {
+                "dto": {
+                    "id": null,
+                    "parentId": null
+                },
+                "api": false,
+                "name": "%s",
+                "virtualSystemIds": []
+            }""" % (sfcname)
+        else:
+            body = """
+            {
+                "dto": {
+                    "id": null,
+                    "parentId": null
+                },
+                "api": false,
+                "name": "%s",
+                "virtualSystemIds": [
+                    %s
+                ]
+            }""" % (sfcname, vs_id)
+
+        url = '/api/server/v1/virtualizationConnectors/%s/serviceFunctionChain' %(vc_id)
+
+        data = self._isc_connection("POST", url, body, action)
+        self._output.log_debug("createSFC -- URL: \"%s\"\n\nResponse:\n%s" %(url, data))
+        sfc_id = data.get("id")
+        sfc.sfcid = sfc_id
+        return sfc
+        # return rfc_id  - we need to put in sfc object because we cannot retrieve later  the id (name is not unique)
+
+    def updateSFC(self, sfc_obj, sfc_id):
+        action = 'Update a SFC'
+        url = '/api/server/v1/virtualizationConnectors/%s/serviceFunctionChain/%s' %(sfc_obj.vcid, sfc_id)
+        body = """
+        {
+            "dto": {
+            "id": %s,
+            "parentId": %s
+            },
+        "name": "%s",
+        "virtualSystemIds": [
+            %s
+        ], 
+        "api": false
+        }""" % (sfc_id, sfc_obj.vcid, sfc_obj.name, sfc_obj.vs_chain)
+
+        data = self._isc_connection("PUT", url, body, action)
+        self._output.log_debug("createSFC -- URL: \"%s\"\n\nResponse:\n%s" %(url, data))
+        return data
+
+    def getAllSFCs(self):
+        sfc_id_list = []
+
+        vc_dict = self.getVirtualizationConnectors()
+        for vc_id in vc_dict.values():
+            sfc_list_per_vc = self.getAllSFCperVC(vc_id)
+            sfc_id_list.extend(sfc_list_per_vc)
+
+        return sfc_id_list
+
+    def deleteAllSFCs(self):
+        sfc_id_list = []
+
+        vc_dict = self.getSfcVirtualizationConnectors()
+        for vc_id in vc_dict.values():
+            sfc_list_per_vc = self.getAllSFCperVC(vc_id)
+            sfc_id_list.extend(sfc_list_per_vc)
+
+        for sfc_id in sfc_id_list:
+            self.deleteSFC(vc_id, sfc_id)
+
+
+    def get_sfc_by_name(self, vc_id, sfc_name):
+        name_to_sfc_dict = self.getAllNameToSFCDictInVC(vc_id)
+        sfc = None
+        try:
+            sfc = name_to_sfc_dict[sfc_name]
+        except:
+            sfc = None
+
+        return sfc
+
+    def getAllNameToSFCDictInVC(self, vc_id):
+        list_of_sfcs = self.getAllSfcDataperVC(vc_id)
+
+        name_to_sfc_dict = {}
+        for sfc in list_of_sfcs:
+            name_to_sfc_dict[sfc['name']] = sfc
+
+        return name_to_sfc_dict
+
+    def getAllSfcDataperVC(self, vc_id):
+        action = 'Get SFC query'
+        url = '/api/server/v1/virtualizationConnectors/%s/serviceFunctionChain' %(vc_id)
+        body = ''
+
+        data = self._isc_connection("GET", url, body, action)
+        self._output.log_debug("getAllSfcDataperVC -- URL: \"%s\"\n\nResponse:\n%s" %(url, data))
+
+        list_of_sfcs = data
+        return list_of_sfcs
+
+
+    def getAllSFCperVC(self, vc_id):
+        list_of_sfcs = self.getAllSfcDataperVC( vc_id)
+        self._output.log_debug("getAllSFCperVC -- list_of_sfcs = %s" % (str(list_of_sfcs)))
+        sfc_id_list = []
+        for sfc in list_of_sfcs:
+            sfc_id = sfc['id']
+            sfc_id_list.append(sfc_id)
+
+        self._output.log_debug("getAllSFCperVC -- sfc_id_list = %s" % (str(sfc_id_list)))
+        return sfc_id_list
+
+
+    def getSFCbyId(self, vc_id, sfc_id):
+        action = 'Get SFC by Id'
+        url = '/api/server/v1/virtualizationConnectors/%s/serviceFunctionChain/%s' %(vc_id, sfc_id)
+        body = ''
+
+        data = self._isc_connection("GET", url, body, action)
+        self._output.log_debug("getSFCbyId -- URL: \"%s\"\n\nResponse:\n%s" %(url, data))
+        return data
+
+    # Remove an SFC - using vc_id, sfc_id
+    def deleteSFC(self, vc_id, sfc_id):
+        #vc_id = sfc.vcid
+        #sfc_id = sfc.sfcid
+        self._output.log_debug("Enter deleteSFC\n -- VC: \"%s\"  SFC: \"%s\"" % (vc_id, sfc_id))
+        action = 'Delete SFC %s' % sfc_id
+        method = "DELETE"
+        headers = 'JSON'
+        body = ''
+        url = '/api/server/v1/virtualizationConnectors/%s/serviceFunctionChain/%s' % (vc_id, sfc_id)
+
+        self._output.log_debug(
+            "deleteSFC\n -- Sending %s Request for Action: %s:\n -- IP Addr: \"%s\"\n -- Headers: \"%s\"\n -- Method: \"%s\"\n -- URL: \"%s\"\n\n -- Body:\n%s" % (
+            method, action, self.iscaddr, headers, method, url, body))
+        data = self._isc_connection('DELETE', url, '', action, "JSON")
+        # There is no job created right now so commented next line
+        # return self._wait_for_job(data, "JSON")
+        print (data)
 
 
     def getVsVcTable(self, da_table=None):
@@ -4690,6 +5016,7 @@ class ISC(object):
         mc_nm_to_id = self.getManagerConnectors()
         mc_nm_to_id = (mc_nm_to_id or {})
         mc_id_list = list(mc_nm_to_id.values())
+
         mc_data_list = [ self.getManagerConnectorDataById(mc_id) for mc_id in mc_id_list ]
         return(mc_data_list)
     pass
@@ -4703,25 +5030,6 @@ class ISC(object):
         return(matched_mc_data_list)
     pass
 
-# Code added by MR
-    # Get SFC.
-    # Return a string with the ISC version
-    def getAllSFCperVC(self, vc_id ):
-        action = 'Get SFC query'
-        url = '/api/server/v1/virtualizationConnectors/%s/serviceFunctionChain' %(vc_id)
-        body = ''
-
-        data = self._isc_connection("GET", url, body, action)
-        self._output.log_debug("getSFC -- URL: \"%s\"\n\nResponse:\n%s" %(url, data))
-
-        list_of_sfcs = data
-
-        for sfc in list_of_sfcs:
-            sfc_id = sfc['id']
-            sfc_name = sfc['name']
-            sfc_vs_list = sfc['virtualizationSystems']
-        return list_of_sfcs
-    pass
 
 ##############################
 ##     End   OSC2.py

@@ -45,6 +45,9 @@ SHOW OSC VERSION
 Clean SGs
     deleteSG   ${osc}
 
+Clean SFCs
+    deleteAllSFCs  ${osc}
+
 Clean DAs
     delete das  ${osc}
 

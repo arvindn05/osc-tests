@@ -2161,6 +2161,24 @@ def init_from_robot(delay,  verbose_logging, oscIp, oscUser, oscPass, vcType, vc
     return osc, openstackVC, Log
 '''
 
+def set_field_in_sfc(op_type, sfc, field_type, field):
+    global Log
+    ret_sfc =  copy.deepcopy(sfc)
+
+    if field_type == 'name':
+        ret_sfc.name = field
+    elif field_type == 'chain':
+        ret_sfc.vs_chain = field
+    else:
+        Log.log_abort("set_field_in_sfc    Not suppported field_type " + field_type + " for SFC")
+
+    if op_type == 'create':
+        return ret_sfc, daTests.createSFC, daTests.deleteSFC, daTests.getAllSFCs
+    elif op_type == 'update':
+        return ret_sfc, daTests.updateSFC, daTests.deleteSFC, daTests.getAllSFCs
+    else:
+        Log.log_abort("set_field_in_sfc()    This operation is not supported for SFC yet")
+
 
 
 def set_field_in_ds(op_type, ds, field_type, field):
@@ -2249,8 +2267,8 @@ def set_field_in_sgbdg(op_type, sgbdg, field_type, field):
         ret_sgbdg.da_name = field
     elif (field_type == 'binding_name') or (field_type == 'binding-name'):
         ret_sgbdg.binding_name = field
-    elif (field_type == 'policy_name') or (field_type == 'policy-name'):
-        ret_sgbdg.policy_name = field
+    elif (field_type == 'policy_names') or (field_type == 'policy-names'):
+        ret_sgbdg.policy_names = field
     elif (field_type == 'is_binded') or (field_type == 'is-binded'):
         ret_sgbdg.is_binded = field
     elif (field_type == 'tag_value') or (field_type == 'tag-value'):
@@ -2368,6 +2386,8 @@ def set_field_in_obj(op_type, obj_type, obj, field_type, field):
         return set_field_in_sgmbr(op_type, obj, field_type, field)
     elif obj_type == 'sgbdg':
         return set_field_in_sgbdg(op_type, obj, field_type, field)
+    elif obj_type == 'sfc':
+        return set_field_in_sfc(op_type, obj, field_type, field)
     else:
         Log.log_abort("set_field_in_obj -- obj_type \"%s\" not defined -- need to add case for \"%s\"" %(obj_type, obj_type))
 
@@ -2450,6 +2470,31 @@ def positive_add_sg_member_test(start_clean, finish_clean, obj_type, field_type,
     Log.testEnd(test_funcname, test_funcname, test_desc, test_step, test_err_count)
 
     return test_err_count
+
+def negative_add_sg_member_test(err_match_str, start_clean, finish_clean, obj_type, field_type, field, obj, osc, log):
+    global Log
+    Log=log
+
+    test_funcname = "negative_add_sg_member_test"
+    test_is_positive    = False
+    ##test_desc           = "Negative test create params: " + obj_type + " " +  field_type + " " + field
+    test_desc           = "Negative test create params:  obj_type=\"%s\"  field_type=\"%s\"   field_value=\"%s\"" %(obj_type, field_type, field)
+
+    Log.log_debug(test_desc)
+
+    test_obj, test_fcn, clean_fcn, verification_fcn = set_field_in_obj('addmember', obj_type, obj, field_type, field)
+    test_step, test_err_count, err_info = datastructUtils.wrap_test_plus_cleaning(positive=test_is_positive, start_clean=start_clean, finish_clean=finish_clean, osc=osc, obj=test_obj, calling_func=test_funcname, err_match_str=err_match_str, test_fcn=test_fcn, clean_fcn=clean_fcn, verification_fcn=verification_fcn, test_step=0, test_err_count=0, fail_on_error=False)
+
+    if test_err_count:
+        Log.log_error("Exit Test %s -- Found %d Errors\n -- Err Info:\n%s" %(test_funcname, test_err_count, err_info))
+    else:
+        Log.log_debug("Exit Test %s -- All Tests Passed" %(test_funcname))
+    pass
+    Log.testEnd(test_funcname, test_funcname, test_desc, test_step, test_err_count)
+
+    ##  Note:  'positive' tests return only err_count, while 'negative' tests return
+    ##         both err_count AND err_info
+    return test_err_count, err_info
 
 
 
@@ -2591,8 +2636,8 @@ def get_func_from_name(func_name):
             func = daTests.getDA
         elif func_name in [ 'daTests.getDS', 'getDS', 'get_ds', 'get ds' ]:
             func = daTests.getDS
-        elif func_name in [ 'daTests.getSFC', 'getDS', 'get_sfc', 'get sfc' ]:
-            func = daTests.getSFC
+        elif func_name in [ 'daTests.getAllSFCs', 'getDS', 'get_sfc', 'get sfc' ]:
+            func = daTests.getAllSFCs
         elif func_name in [ 'daTests.getSgs', 'getSgs', 'get_sgs', 'get sgs' ]:
             func = daTests.getSGs
         elif func_name in [ 'daTests.getSg', 'getSg', 'get_sg', 'get sg' ]:
@@ -2611,6 +2656,8 @@ def get_func_from_name(func_name):
             func = daTests.removeSgMbr
         elif func_name in [ 'daTests.deleteSG', 'deleteSG', 'delete_sg', 'delete sg' ]:
             func = daTests.deleteSG
+        elif func_name in [ 'daTests.deleteAllSFCs']:
+            func = daTests.deleteAllSFCs()
         elif func_name in [ 'daTests.forceDeleteDA', 'force_delete_da', 'force delete da' ]:
             func = daTests.forceDeleteDA
         elif func_name in [ 'daTests.delete_das', 'delete das' ]:
@@ -2855,6 +2902,8 @@ def fetch_osc_data(data_fetch_fcn, filter_field, filter_value, osc, *fetch_fcn_k
     keyarg_dict = build_dict_from_arglist(fetch_fcn_keyargs)
     Log.log_debug("fetch_osc_data -- Calling Data Fetch Fcn: \"%s\"" %(data_fetch_fcn))
     raw_fetched_data = data_fetch_fcn(osc, **keyarg_dict)
+    Log.log_debug("Fetched Data: %s" %(Log.pformat(raw_fetched_data)))
+
     fetched_data = raw_fetched_data
     Log.log_debug("fetch_osc_data -- Returned from Data Fetch Fcn \"%s\" -- Fetched Data:\n%s" %(data_fetch_fcn, Log.pformat(fetched_data)))
     if not filter_field:
@@ -3272,6 +3321,19 @@ def get_osc(oscIp, oscUser, oscPass, verbose=False):
     oscVersion = osc.getISCVersion()
     return osc
 
+def get_sfc_id(osc, vc_name, sfc_name):
+    vc_id = get_vc_id(osc, vc_name)
+    list_sfc_id = osc.getAllSFCperVC(vc_id)
+
+    id = list_sfc_id[0]
+    try:
+        id = sfc.sfcid
+    except:
+        id = 'sfc not found'
+    return id
+
+
+
 def get_vc_id(osc, vcName):
     vc_nm_to_id = osc.getVirtualizationConnectors()
     id = 'vc not initialized'
@@ -3281,6 +3343,20 @@ def get_vc_id(osc, vcName):
         id = 'vc not found'
 
     return id
+
+def get_vs_id(osc, daName):
+    da_id_vs_id_dict = osc.getDaIdToVsIdDict()
+
+    for da_id in da_id_vs_id_dict.keys():
+        data = osc.getDistributedApplianceDataById(da_id)
+
+        if data['da_name'] == daName:
+            vs_id = data['vs_id']
+            Log.log_info("we found vs_id %s in da with name:%s" %(vs_id, daName))
+            return vs_id
+
+    Log.log_error("Couldn't find any da with name:%s" %(daName))
+    return None # we didn't find vs id for this da name
 
 def get_vc(vcType, vcName, ishttps, providerIP, providerUser, providerPass, softwareVersion, rabbitMQPort, rabbitUser, rabbitMQPassword, adminProjectName, adminDomainId, controllerType):
     typeVC = forrobot.vc(vcType, vcName, ishttps, providerIP, providerUser, providerPass, softwareVersion, rabbitMQPort, rabbitUser, rabbitMQPassword, adminProjectName, adminDomainId, controllerType)
@@ -3417,7 +3493,8 @@ def run_like_from_robot():
     vc_rabbitmq_pass = "guest"
     vc_admin_project_name = "admin"
     vc_adminDomainId = "default"
-    vc_sdn_controller_type = "NSC"
+    vc_sdn_controller_type = "Neutron-sfc"
+    #vc_sdn_controller_type = "NSC"
 
     # MC
     mc_type = "ISM"
@@ -3428,12 +3505,12 @@ def run_like_from_robot():
     mc_api_key = ''
 
     # DA
-    da_name = "default-DA"
+    da_name = "default-DA" 
     da_mcname = "default-MC"
     da_model = "CIRROS-TCPD"
     da_sw_vers_name = "0.3.0.5000"
-    da_domain_name = ""
-    da_encap_type = ""
+    da_domain_name = "Default"
+    da_encap_type = "VLAN"
     da_vc_name = "default-VC"
     da_vc_type = "OPENSTACK"
 
@@ -3441,27 +3518,30 @@ def run_like_from_robot():
     ds_name = "default-DS"
     ds_da_name = "default-DA"
     ds_project_name = "admin"
-    ds_region_name = "regionOne"
-    ds_selection = "All"
-    ds_mgmt_net = "mgmt-net" # "demo-net"
-    ds_insp_net = "insp-net"
-    ds_floating_ip_pool = "ext-net"
+    ds_region_name = "RegionOne"
+    #ds_selection = "All"
+    ds_selection = "hosts:ocata-comp"
+    ds_mgmt_net = "mgmt" # "demo-net"
+    ds_insp_net = "inspection"
+    ds_floating_ip_pool = 'null'
     ds_count = 1
     ds_shared = True
 
     # SG
     sg_name = "default-SG"
     sg_protect_all = False
-    sg_vm_member_name = "cirros1"
+    sg_vm_member_name = "victim"
     sg_vm_member_type = "VM"
-    sg_network_member_name = "mgmt-net"
+    sg_network_member_name = ds_mgmt_net
     sg_network_member_type = "NETWORK"
     sg_subnet_member_name = "mgmt-subnet"
     sg_subnet_member_type = "SUBNET"
     sg_binding_name = "%s-BDG-1" %(sg_name)
     sg_binding_da_name = da_name
     sg_bdg_is_binded = True
-    sg_policy_name = "Default Client and Server Protection"
+    sg_odd_policy = "Odd"
+    sg_even_policy = "Even"
+    sg_multiple_policies = sg_odd_policy + ',' + sg_even_policy
 
     log = get_log(1, True)
     osc = get_osc(osc_ip, osc_user, osc_pass)
@@ -3474,63 +3554,124 @@ def run_like_from_robot():
     mc_obj = mcTests.get_mc(mc_type, mc_name, mc_provider_ip, mc_user, mc_pass, mc_api_key)
     da_obj = daTests.get_da(da_name, mc_name, da_model, da_sw_vers_name, da_domain_name, da_encap_type, da_vc_name, da_vc_type)
     ds_obj = daTests.get_ds(ds_name, da_name, ds_region_name, ds_project_name, ds_selection, ds_insp_net, ds_mgmt_net, ds_floating_ip_pool, ds_shared, ds_count)
+    vc_id = get_vc_id(osc, vc_name)
+    vs_id = get_vs_id(osc, da_name)
+    vs_id2 = get_vs_id(osc, 'second_DA')
+    vs_id_chain = str(vs_id2) + "," + str(vs_id)
+    #sfc_id = get_sfc_id(osc, sfc)
+    sfc_obj = daTests.get_sfc('sfc1', vc_name, vc_id)
+
     sg_obj = daTests.get_sg(sg_name, vc_name, ds_project_name, sg_protect_all)
     ##                                   sg-name      member-name  member-type   region-name
-    sg_vm_member_obj = daTests.get_sgmbr(sg_name, da_name, sg_vm_member_name, "VM", ds_region_name)
-    sg_network_member_obj = daTests.get_sgmbr(sg_name, da_name, sg_network_member_name, "NETWORK", ds_region_name)
-    sg_subnet_member_obj = daTests.get_sgmbr(sg_name, da_name, sg_subnet_member_name, "SUBNET", ds_region_name)
+    sg_vm_member_obj = daTests.get_sgmbr(sg_name, sg_vm_member_name, "VM", ds_region_name)
+    sg_network_member_obj = daTests.get_sgmbr(sg_name, sg_network_member_name, "NETWORK", ds_region_name)
+    sg_subnet_member_obj = daTests.get_sgmbr(sg_name, sg_subnet_member_name, "SUBNET", ds_region_name)
     ##
-    sg_binding_obj = daTests.get_sgbdg(sg_name, da_name, sg_binding_name, sg_policy_name, True)
 
+    sg_odd_binding_obj = daTests.get_sgbdg(sg_name, da_name, sg_binding_name, sg_odd_policy, True)
+    sg_even_binding_obj = daTests.get_sgbdg(sg_name, da_name, sg_binding_name, sg_even_policy, True)
+    sg_multiple_binding_obj = daTests.get_sgbdg(sg_name, da_name, sg_binding_name, sg_multiple_policies, True)
 
     #sfc_list = osc.getAllSFCperVC(1)
     #print (sfc_list)
     Log.log_debug("OSC Version: %s" %(get_version(osc)))
     #'''
+
     daTests.deleteSG(osc)
+    daTests.deleteAllSFCs(osc)
     daTests.delete_das(osc)
 
 
+
     #uploadCertificate(osc, 'nsmcer', '-----BEGIN CERTIFICATE-----\n MIID6TCCAtGgAwIBAgIEa7J6ZzANBgkqhkiG9w0BAQsFADCBpDEkMCIGCSqGSIb3DQEJARYVQWRtaW5pc3RyYXRvckBXSU4yMDA4MRAwDgYDVQQDEwdXSU4yMDA4MSUwIwYDVQQLExxJbnRydXNpb24gUHJldmVudGlvbiBTeXN0ZW1zMRMwEQYDVQQKEwpNY0FmZWUgSW5jMRQwEgYDVQQHEwtTYW50YSBDbGFyYTELMAkGA1UECBMCQ0ExCzAJBgNVBAYTAlVTMB4XDTE3MDMwOTIzNDg1MFoXDTM3MDMwNDIzNDg1MFowgaQxJDAiBgkqhkiG9w0BCQEWFUFkbWluaXN0cmF0b3JAV0lOMjAwODEQMA4GA1UEAxMHV0lOMjAwODElMCMGA1UECxMcSW50cnVzaW9uIFByZXZlbnRpb24gU3lzdGVtczETMBEGA1UEChMKTWNBZmVlIEluYzEUMBIGA1UEBxMLU2FudGEgQ2xhcmExCzAJBgNVBAgTAkNBMQswCQYDVQQGEwJVUzCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAK0LbxzsdKRtz1lF2sVoAOPjNw+thWYot9sPtSorBHkLkee5g1rIJjveha/7gI40ygNaBrh+cYPC+xQTr/cj6Yc4aN4rBTmNlqyd75Khq1hng91Us7qwKJezHFSidjFxegdMEdvul8f1AgvOOfJeNYCyhr1eX6sfKRYzIn7xp7qjndDXGK4AjVMIxdI28jkPQ9kteCsQG2qypvGFHUx99ZNfYBsBSbVUGr6WKcHogv7ADcoTZ8IbDUNkrGOx4H7MqpV2apDQgN0Y4KucH34V4knrobWeG/MWvRBkFH5p7z0FsJXJsUyIYlmB5w/hMC4dpX/lXN5AB5Apnhu1yYGVh6sCAwEAAaMhMB8wHQYDVR0OBBYEFCWET7OBnx7/n3s1uacBu+VYiRdlMA0GCSqGSIb3DQEBCwUAA4IBAQBv0Jd81YB2QCx/RYxJ1Iim8MFvc/dZ4r7EN9M7tWSFTqYCJYhUIOLDJqJQ2SrE4quXod/hio1EIMzYsGO0BKEHYB4ScT9F5DcQSOC4uuL161BB7cQkCrjpZvDYbzpeKgaGEy6Km+hinfrWMUSh7zjePBuquzD/UOpl92Ds3ZI79o9jjVo3ROgoznTnYgKGK8L1o+WVd+yQ2dykxqUfwO0D3A8v+gWjEBat24H1XoW7hFAPTwBH2axHkCX07BdRMN2nG7q0Edb+Z1rd+THgut3N5Wlo88N+Uw4yd8UkWYwZJszlgRvmU8X2ZaeTl59lJ4zGnRvC2gxwN2pX9lsAhZkU \n-----END CERTIFICATE-----')
-
     res = positive_test(True, False, "vc", "name", vc_name, vc_obj, osc, log)
-    if (res !=0):  raise Exception()
-
-  
-    #id = get_vc_id(osc, vc_name)
-    #res = positive_update_test(id, False, "vc", "name", "updated-vc-name", vc_obj, osc, log)
-
-    # res, error_msg = negative_update_test('Open Security Controller: Name should not have an empty value.', id, False, "vc", "name", '', vc_obj, osc, log)
+    if (res != 0):  raise Exception()
 
     res = positive_test(True, False, "mc", "name", mc_name, mc_obj, osc, log)
-    if (res !=0):  raise Exception()
-    
-    res = positive_test(True, False, "da", "name", da_name, da_obj, osc, log)
-    Log.log_info("After Creating DA:  Res=\"%s\"\n%s" %(res, Log.pformat(daTests.getDAs(osc))))
-    #'''
+    if (res != 0):  raise Exception()
 
-    res = positive_test(True, False, "sg", "name", sg_name, sg_obj, osc, log)
-    Log.log_info("After Creating SG:  Res=\"%s\"\n%s" %(res, Log.pformat(daTests.getSGs(osc))))
+    res = positive_test(False, False, "da", "name", da_name, da_obj, osc, log)
+    Log.log_info("After Creating DA:  Res=\"%s\"\n%s" % (res, Log.pformat(daTests.getDAs(osc))))
+
+    res = positive_test(True, False, "sfc", "name", 'sfc1', sfc_obj, osc, log)
+    Log.log_info("After Creating SFC:  Res=\"%s\"\n%s" %(res, Log.pformat(daTests.getAllSFCs(osc))))
 
     res = positive_test(True, False, "ds", "name", ds_name, ds_obj, osc, log)
-    Log.log_info("After Creating DS:  Res=\"%s\"\n%s" %(res, Log.pformat(daTests.getDSs(osc))))
-    exit(0)
+    Log.log_info("After Creating DS:  Res=\"%s\"\n%s" % (res, Log.pformat(daTests.getDSs(osc))))
+
+    res = positive_test(True, False, "sg", "name", sg_name, sg_obj, osc, log)
+    Log.log_info("After Creating SG:  Res=\"%s\"\n%s" % (res, Log.pformat(daTests.getSGs(osc))))
 
     res = positive_add_sg_member_test(True, False, "sgmbr", None, None, sg_vm_member_obj, osc, log)
-    Log.log_info("After Adding VM SG Member:  Res=\"%s\"\n%s" %(res, Log.pformat(daTests.getSgMbrs(osc))))
-    res = positive_add_sg_member_test(True, False, "sgmbr", None, None, sg_network_member_obj, osc, log)
-    Log.log_info("After Adding Network SG Member:  Res=\"%s\"\n%s" %(res, Log.pformat(daTests.getSgMbrs(osc))))
-    res = positive_add_sg_binding_test(True, False, "sgbdg", None, None, sg_binding_obj, osc, log)
+    Log.log_info("After Adding VM SG Member:  Res=\"%s\"\n%s" % (res, Log.pformat(daTests.getSgMbrs(osc))))
+
+    da_id_list = osc.getDistributedApplianceIdList()
+    vs_id_chain = ','.join(map(str,da_id_list))
+    vc_id = get_vc_id(osc, 'default-VC')
+    #Test SFC GET:
+    list_sfc_id = osc.getAllSFCperVC(vc_id)
+    #vs_id_chain = ""
+    if len(list_sfc_id) == 0:
+        #Test SFC POST:
+        da_id_list = osc.getDistributedApplianceIdList()
+        vs_id_chain = ','.join(map(str,da_id_list))
+        for da_id in da_id_list:
+            vs_id = osc.getVSIDsforDAID(da_id)
+            sfc_obj.vcid = vc_id
+            sfc_obj.vsid = vs_id
+            sfc_obj = osc.createSFC(sfc_obj)
+            sfc_id = sfc_obj.sfcid
+    else:
+        sfc_id = list_sfc_id[0]
+
+    sfc_data = osc.getSFCbyId(vc_id, sfc_id)
+    #sfcid = get_sfc_id(osc, sfc_obj)
+    
+    #Test SFC PUT/update:
+    if vs_id_chain != "":
+        sfc_obj = forrobot.sfc(name = sfc_data['name'], vcname = sfc_data['name'], vcid = sfc_data['virtualSystemDto']['vcId'], vsid = sfc_data['virtualSystemDto']['vsId'], vsidchain = vs_id_chain)
+        res = osc.updateSFC(sfc_obj, sfc_id)
+        #res = positive_test(True, False, "sfc", "name", sfc_name, sfc_obj, osc, log)
+        #Log.log_info("After Creating SFC:  Res=\"%s\"\n%s" %(res, Log.pformat(daTests.getSFCbyId(vc_id, sfc_id))))
+    
+    #Test SFC delete all of SFC:
+    i = 0
+    while len(list_sfc_id) > 0:
+        sfc_id = list_sfc_id[i]
+        res = osc.deleteSFC(vc_id, sfc_id)
+        i = i + 1
+    
+    #Test SFC update:
+    #positive update test    ${sfc_id}  ${false}  sfc  name  updated-chain  ${sfc}  ${osc}  ${log}
+    #sfc_id = get_sfc_id(osc, sfc_obj)
+    sfc_id = list_sfc_id[0]
+    sfc_obj.sfcid = sfc_id
+    nsfc_id = get_sfc_id(osc, sfc_obj)
+    res = positive_update_test(sfc_id, False, "sfc", "chain", vs_id_chain, sfc_obj, osc, log)
+    Log.log_info("After Updating SFC:  Res=\"%s\"\n%s" %(res, Log.pformat(daTests.getAllSFCs(osc))))
+
+
+    #res = positive_update_test(sfc_obj.sfcid, False, "sfc", "name", "updated-SFC-chain", sfc_obj, osc, log)
+    #Log.log_info("After Updating SFC:  Res=\"%s\"\n%s" %(res, Log.pformat(daTests.getAllSFCs(osc))))
+    # res, error_msg = negative_update_test('Open Security Controller: Name should not have an empty value.', id, False, "vc", "name", '', vc_obj, osc, log)
+
+
+    res = positive_add_sg_binding_test(True, False, "sgbdg", None, None, sg_odd_binding_obj, osc, log)
     Log.log_info("After Adding SG Binding:  Res=\"%s\"\n%s" %(res, Log.pformat(daTests.getSgBdgs(osc))))
 
-    result = apply_keyword_arg_func(positive_check_field_value, 'expected_value', 'Default Client Protection', 'field_type', 'policyName', 'data_fetch_fcn', daTests.getSgBdgs, 'osc', osc, 'sg_name_or_id', 'BOB-SG-123')
-    sleep(3600)
+    res = positive_add_sg_binding_test(True, False, "sgbdg", None, None, sg_multiple_binding_obj, osc, log)
+    Log.log_info("After Adding SG Binding:  Res=\"%s\"\n%s" %(res, Log.pformat(daTests.getSgBdgs(osc))))
 
-##    ##                      sg-name      member-name  member-type   region-name
-##    sgmbr = daTests.get_sgmbr('BOB-SG-123', 'cirros1', 'VM', 'regionOne')
-##    sgmbr = daTests.get_sgmbr('BOB-SG-123', 'demo-net', 'NETWORK', 'regionOne')
-##    res = positive_add_sg_member_test(True, False, 'sgmbr', 'member-name', 'cirros1', sgmbr, osc, log):
-##    res = positive_add_sg_member_test(True, False, 'sgmbr', 'none', 'none', sgmbr, osc, log)
+    res = positive_add_sg_member_test(True, False, "sgmbr", None, None, sg_network_member_obj, osc, log)
+    Log.log_info("After Adding Network SG Member:  Res=\"%s\"\n%s" %(res, Log.pformat(daTests.getSgMbrs(osc))))
+
+    #    result = apply_keyword_arg_func(positive_check_field_value, 'expected_value', 'Default Client Protection', 'field_type', 'policyName', 'data_fetch_fcn', daTests.getSgBdgs, 'osc', osc, 'sg_name_or_id', 'BOB-SG-123')
+
+    ##    ##                      sg-name      member-name  member-type   region-name
+    ##    sgmbr = daTests.get_sgmbr('BOB-SG-123', 'cirros1', 'VM', 'regionOne')
+    ##    sgmbr = daTests.get_sgmbr('BOB-SG-123', 'demo-net', 'NETWORK', 'regionOne')
+    ##    res = positive_add_sg_member_test(True, False, 'sgmbr', 'member-name', 'cirros1', sgmbr, osc, log):
+    ##    res = positive_add_sg_member_test(True, False, 'sgmbr', 'none', 'none', sgmbr, osc, log)
 
 pass
 

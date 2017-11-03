@@ -61,7 +61,7 @@ from osc import ISCTestError
 # 
 # 
 # ##
-# ##   Args:   {'iscpassword': 'admin123', 'iscport': 8090, 'ostackip': '10.71.85.62', 'ostackversion': '2', 'keystoneip': '10.71.85.62', 'smc_policy': None, 'ostackprojectid': 'b38d21a9ac3b464492f1b8cb18d77a25', 'ostackuser': 'admin', 'vcname': 'vctest', 'keystoneuser': 'admin', 'smckey': None, 'keystonepassword': 'admin123', 'smc_policy_template': 'Layer 2 Firewall Inspection Template', 'smcversion': '5.10', 'smcproto': 'https', 'ostackpassword': 'admin123', 'smcport': None, 'iscuser': 'admin', 'ostackproject': 'demo', 'smcip': None, 'mcname': 'OSQAET-SMC', 'sgname': 'sgtest', 'iscip': '10.71.85.64'}
+# ##   Args:   {'iscpassword': 'admin123', 'iscport': 8090, 'ostackip': '10.71.85.62', 'ostackversion': '2', 'keystoneip': '10.71.85.62', 'smc_policy': None, 'ostackprojectid': 'b38d21a9ac3b464492f1b8cb18d77a25', 'ostackuser': 'admin', 'vcname': 'vctest', 'keystoneuser': 'admin', 'smckey': None, 'keystonepassword': 'admin123', 'smc_policy_template': 'Layer 2 Firewall Inspection Template', 'smcversion': '5.10', 'smcproto': 'https', 'ostackpassword': 'admin123', 'smcport': None, 'iscuser': 'admin', 'ostackproject': 'admin', 'smcip': None, 'mcname': 'OSQAET-SMC', 'sgname': 'sgtest', 'iscip': '10.71.85.64'}
 # ##
 # ##
 # ###########################################################

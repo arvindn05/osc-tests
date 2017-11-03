@@ -49,6 +49,17 @@ class mc():
         self.passwd = mcPass
         self.key = mcApiKey
 
+#sfc(sfcname, vcname)
+class sfc():
+# to be initiated from Robot need all paremters
+    def __init__(self, name, vcname, vcid=None, vsid=None, sfcid=None, vsidchain=None):
+        self.obj_type = "sfc"
+        self.name = name
+        self.vcname = vcname
+        self.vcid = vcid  # it is needed for the calls (we cannot provide in testbed just in run time)
+        self.vsid = vsid  # it is needed for the calls (we cannot provide in testbed just in run time)
+        self.sfcid = sfcid  # it is needed for the calls (we cannot provide in testbed just in run time)
+        self.vsidchain = vsidchain  # it is needed for the calls (we cannot provide in testbed just in run time)
 
 class da():
 # to be initiated from Robot need all paremters
@@ -71,8 +82,8 @@ class ds():
         self.name           = ds_name
         self.da_name        = da_name
         self.region_name    = region_name
-        self.project_name    = project_name
-        self.selction       = selection
+        self.project_name   = project_name
+        self.selection      = selection
         self.inspnet_name   = inspnet_name
         self.mgmtnet_name   = mgmtnet_name
         self.ippool_name    = ippool_name
@@ -102,16 +113,17 @@ class sgMbr():
         self.protect_external  = protect_external
 
 class sgBdg():
-    def __init__(self, sg_name, da_name, binding_name, policy_name, is_binded=True, tag_value=None, failure_policy=None, policy_order=0):
+    def __init__(self, sg_name, da_name, binding_name, policy_names, is_binded=True, sfc_name=None, tag_value=None, failure_policy=None, policy_order=0):
         self.obj_type = "sgbdg"
         self.sg_name           = sg_name
         self.da_name           = da_name
         self.binding_name      = binding_name
-        self.policy_name       = policy_name
+        self.policy_names      = policy_names.split(',')
         self.is_binded         = is_binded
         self.tag_value         = tag_value
         self.failure_policy    = failure_policy
         self.policy_order      = policy_order
+        self.sfc_name          = sfc_name
 
 
 

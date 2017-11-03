@@ -27,10 +27,11 @@ except Exception as e:
 try:
     ##from novaclient.v2 import client as novaClient
     from novaclient import client as novaClient
+
 except Exception as e:
     pass
 try:
-    from neutronclient.v3_0 import client as neutronClient
+    from neutronclient.v2_0 import client as neutronClient
 except Exception as e:
     pass
 try:
@@ -234,6 +235,9 @@ def getOstackCred(
                 password=None,
                 auth_port="5000",
                 auth_vers="v3",
+                project_domain_name=None,
+                project_domain_id=None,
+                user_domain_name=None
                ):
 
     rtndict = _getOstackCredAux(auth_ip=auth_ip,
@@ -248,7 +252,11 @@ def getOstackCred(
                                 auth_domain_name=None,
                                 auth_project=auth_project,
                                 auth_password=auth_password,
-                                auth_port=auth_port)
+                                auth_port=auth_port,
+                                project_domain_name=None,
+                                project_domain_id=None,
+                                user_domain_name=None
+                                )
     return(rtndict['cred_dict'])
 pass
 
@@ -364,7 +372,7 @@ def getNovaClient(
     auth_url = cred_dict['auth_url']
     if session:
         Log.log_debug("get instance info -- Session -- %s:\n%s" %(session, Log.objformat(session)))
-        nvclient = novaClient.Client(version="3", session=session)
+        nvclient = novaClient.Client(version="2", session=session)
     elif cred_dict:
         cred_dict = getOstackCred(**cred_dict)
         Log.log_debug("get instance info -- cred_dict:\n%s" %(Log.pformat(cred_dict)))
@@ -587,13 +595,13 @@ def _getServerNameOrId(ostkConn, vm):
         vm = vm['id']
     pass
     if isinstance(vm, str):
-        vm_obj = ostkConn.compute.find_instance(vm)
+        vm_obj = ostkConn.compute.find_server(vm)
     else:
         vm_obj = vm
     pass
     vm_id = vm_obj.id
     vm_name = vm_obj.name
-    vm_detail_list = ostkConn.compute.instances(True, name=vm_name)
+    vm_detail_list = ostkConn.compute.servers(True, name=vm_name)
     vm_detail_list = list(vm_detail_list)
     vm_detail_match_list = [ x for x in vm_detail_list if x.id == vm_id ]
     vm_detail_obj = vm_detail_match_list[0]
@@ -647,7 +655,9 @@ def _getPortNameOrId(ostkConn, port):
         port = port['id']
     pass
     if isinstance(port, str):
+        Log.log_debug("_getPortNameOrId Port: %s" %(port))
         port_obj = ostkConn.network.find_port(port)
+        
     else:
         port_obj = port
     pass
@@ -666,11 +676,11 @@ def _getServerInterfaceNameOrId(ostkConn, vmIface, vm=None):
     pass
     if isinstance(vmIface, str):
         Log.log_info("_getServerInterfaceNameOrId 623 -- Svr: \"%s\"" %(vm))
-        vm_obj = ostkConn.compute.find_instance(vm)
+        vm_obj = ostkConn.compute.find_server(vm)
         Log.log_info("_getServerInterfaceNameOrId 625 -- Svr Obj: \"%s\"" %(vm_obj))
         vm_id = vm_obj.id
         Log.log_info("_getServerInterfaceNameOrId 627 -- Svr Obj: \"%s\"" %(vm_id))
-        ifc_obj = ostkConn.compute.get_instance_interface(vmIface, vm_id)
+        ifc_obj = ostkConn.compute.get_server_interface(vmIface, vm_id)
     else:
         ifc_obj = vmIface
     pass
@@ -868,26 +878,17 @@ pass
 
 def createPort(ostkConn, netwk=None):
     netwk_id = getNetworkId(ostkConn, netwk)
-    ##args_dict = {'network_id':netwk_id}
-    ##if name:
-    ##    args_dict['name'] = name
-    ##port_obj = ostkConn.network.create_port(**args_dict)
-    port_obj = ostkConn.network.create_port(network_id=netwk)
+    port_obj = ostkConn.network.create_port(network_id=netwk_id)
     port_details = port_obj.to_dict()
     Log.log_info("createPort -- Details:\n%s" %(Log.pformat(port_details)))
     return port_obj
-    port_id = getNetworkId(ostkConn, port_obj)
-    return port_id
 pass
 
 
 
 def ostack_create_port(ostack_ip, netwk=None):
-    ostkConn = getOstackConnection(auth_ip, project_name="admin")
-    ##args_dict = {'netwk':netwk}
-    ##if name:
-    ##    args_dict['name'] = name
-    ##port_id = createPort(ostkConn, **args_dict)
+    
+    ostkConn = getOstackConnection(ostack_ip, project_name="admin")
     port_id = createPort(ostkConn, netwk=netwk)
     return port_id
 pass
@@ -895,7 +896,8 @@ pass
 
 
 def ostack_delete_port(ostack_ip, port):
-    ostkConn = getOstackConnection(auth_ip, project_name="admin")
+    
+    ostkConn = getOstackConnection(ostack_ip, project_name="admin")
     port_id = getPortId(ostkConn, port)
     rslt = deletePort(ostkConn, port_id)
 pass
@@ -905,6 +907,14 @@ pass
 
 def createNetwork(ostkConn, name=None):
     netwk_obj = ostkConn.network.create_network(name=name)
+
+    # creation of port requires subnet to be created
+    ostkConn.network.create_subnet(
+        network_id=netwk_obj.id,
+        ip_version='4',
+        cidr='172.0.9.0/26',
+        gateway_ip='172.0.9.1')
+
     netwk_id = getNetworkId(ostkConn, netwk_obj)
     return netwk_id
 pass
@@ -912,6 +922,7 @@ pass
 
 
 def ostack_create_network(ostack_ip, name):
+    auth_ip = ostack_ip
     ostkConn = getOstackConnection(auth_ip, project_name="admin")
     netwk_id = createNetwork(ostkConn, name)
     return netwk_id
@@ -921,13 +932,20 @@ pass
 
 def deleteNetwork(ostkConn, netwk):
     netwk_id = getNetworkId(ostkConn, netwk)
+
+    #needs to delete all port in use
+
+    for port in ostkConn.network.ports(network_id=netwk_id):
+        deletePort(ostkConn, port)
+
     rslt = ostkConn.network.delete_network(netwk_id)
 pass
 
 
 
 def ostack_delete_network(ostack_ip, netwk):
-    ostkConn = getOstackConnection(auth_ip, project_name="admin")
+    
+    ostkConn = getOstackConnection(ostack_ip, project_name="admin")
     netwk_id = getNetworkId(ostkConn, netwk)
     rslt = deleteNetwork(ostkConn, netwk_id)
 pass
@@ -1000,6 +1018,7 @@ pass
 def addServerInterface(ostkConn, vm=None, netwk=None, port=None):
     ostkSession = getSessionForConn(ostkConn)
     nvclient = getNovaClient(session=ostkSession)
+    ostkAdminSession = ostkSession
     neuclient = getNeutronClient(session=ostkAdminSession)
     vm_id = getServerId(ostkConn, vm)
     netwk_id = getNetworkId(ostkConn, netwk)
@@ -1019,7 +1038,7 @@ def addServerInterface(ostkConn, vm=None, netwk=None, port=None):
             port_id = getPortId(ostkConn, port)
         pass
     pass
-    nvclient.instances.interface_attach(vm_id, port_id=port_id, net_id=None, fixed_ip=None)
+    nvclient.servers.interface_attach(vm_id, port_id=port_id, net_id=None, fixed_ip=None)
     new_interface_list = getServerInterfaces(ostkConn, vm_id)
     new_interface_id_list = [ x.id for x in new_interface_list ]
     added_interface_id_list = [ xid for xid in new_interface_id_list if (xid not in old_interface_id_list) ]
@@ -1034,7 +1053,8 @@ pass
 
 
 def ostack_add_instance_interface(ostack_ip, vm=None, netwk=None):
-    ostkConn = getOstackConnection(auth_ip, project_name="admin")
+    ostkConn = getOstackConnection(ostack_ip, project_name="admin")
+    Log.log_debug("In add instance interface.. Network:%s vm:%s" %(netwk, vm))
     args_dict = {'vm':vm, 'netwk':netwk}
     ifc_id = addServerInterface(ostkConn, vm, netwk=netwk)
     return ifc_id
@@ -1047,10 +1067,11 @@ pass
 def removeServerInterface(ostkConn, vm, port=None, delete_port=True):
     ostkSession = getSessionForConn(ostkConn)
     nvclient = getNovaClient(session=ostkSession)
-    neuclient = getNeutronClient(session=ostkAdminSession)
+    #neuclient = getNeutronClient(session=ostkAdminSession)
+    neuclient = getNeutronClient(session=ostkSession)
     vm_id = getServerId(ostkConn, vm)
     port_id = getPortId(ostkConn, port)
-    nvclient.instances.interface_detach(vm_id, port_id)
+    nvclient.servers.interface_detach(vm_id, port_id)
     if delete_port:
         try:
             getPortObj(ostkConn, port_id)
@@ -1064,6 +1085,7 @@ pass
 
 
 def ostack_remove_instance_interface(ostack_ip, vm, port=None):
+    auth_ip = ostack_ip
     ostkConn = getOstackConnection(auth_ip, project_name="admin")
     removeServerInterface(ostkConn, vm, port=port)
 pass
@@ -1073,10 +1095,10 @@ pass
 
 def getServerInterfaces(ostkConn, vm):
     vm_id = getServerId(ostkConn, vm)
-    iface_list = ostkConn.compute.instance_interfaces(vm_id)
+    iface_list = ostkConn.compute.server_interfaces(vm_id)
     iface_list = list(iface_list)
     ##iface_dict_list = [ iface.to_dict() for iface in iface_list ]
-    ##Log.log_info("getServerInterfaces -- Returning:\n%s" %(Log.pformat(iface_dict_list)))
+    Log.log_info("getServerInterfaces -- Returning:\n%s" %(Log.pformat(iface_list)))
     ##return iface_dict_list
     return iface_list
 pass
@@ -1093,7 +1115,7 @@ def createServer(ostkConn, name, img=None, flav=None, netwk=None, keypair=None):
     ##    keypair = create_keypair(ostkConn)
 
     networks = [ {'uuid':network.id} ]
-    vm = ostkConn.compute.create_instance(
+    vm = ostkConn.compute.create_server(
         name=name,
         image_id=image.id,
         flavor_id=flavor.id,
@@ -1108,7 +1130,7 @@ pass
 
 
 def ostack_create_instance(ostack_ip, name, img="cirros", flav="m1.tiny", netwk=None):
-    ostkConn = getOstackConnection(auth_ip, project_name="admin")
+    ostkConn = getOstackConnection(ostack_ip, project_name="admin")
     vm_id = createServer(ostkConn, name, img=img, flav=flav, netwk=netwk)
     return vm_id
 pass
@@ -1121,12 +1143,13 @@ def deleteServer(ostkConn, vm, force=False):
     ignore_missing = True
     force=True
     Log.log_info("deleteServer -- Deleting instance: \"%s\"" %(vm_id))
-    rslt = ostkConn.compute.delete_instance(vm_id, ignore_missing=ignore_missing, force=force)
+    rslt = ostkConn.compute.delete_server(vm_id, ignore_missing=ignore_missing, force=force)
 pass
 
 
 
 def ostack_delete_instance(ostack_ip, vm):
+    auth_ip = ostack_ip
     ostkConn = getOstackConnection(auth_ip, project_name="admin")
     deleteServer(ostkConn, vm, force=True)
 pass

@@ -355,7 +355,7 @@ def attack_victim(ostack_ip=None,  attk_name=None, vict_name=None,  timeout=30, 
         attk_parsed_nwk_info = parse_instance_nwk_info(attk_nwk_info, demonet_name=demonet_name, extnet_name=extnet_name)
         attk_extnet_info_list = [ x for x in attk_parsed_nwk_info if x['nwk'] == extnet_name ]
         if not attk_extnet_info_list:
-            outx.log_abort("attack_victim -- No Attacker Instance \"%s\" interface found for 'ext-net' \"%s\"\n\n -- Attacker-VM Network Interfaces:\n%s" %(attk_name, extnet_name, outx.pformat(attk_parsed_nwk_info)))
+            outx.log_abort("attack_victim -- No Attacker Instance \"%s\" interface found for 'null' \"%s\"\n\n -- Attacker-VM Network Interfaces:\n%s" %(attk_name, extnet_name, outx.pformat(attk_parsed_nwk_info)))
         pass
         attk_extnet_info = attk_extnet_info_list[0]
         attk_extnet_ip = attk_extnet_info['ip']
@@ -1069,7 +1069,7 @@ pass
 
 
 
-def floating_ip_list(ostack_ip, pool="ext-net", ostack_cred=None):
+def floating_ip_list(ostack_ip, pool='null', ostack_cred=None):
     outx.log_info("Enter floating_ip_list")
     dict_list = rem_ostack_cmmd(ostack_ip,
                                  cmmd="nova floating-ip-list",
@@ -1088,7 +1088,7 @@ pass
 
 
 
-def floating_ip_create(ostack_ip, pool="ext-net", ostack_cred=None):
+def floating_ip_create(ostack_ip, pool='null', ostack_cred=None):
     outx.log_info("Enter floating_ip_create")
     line_dict_list = rem_ostack_cmmd(ostack_ip,
                                       "nova floating-ip-create %s" %(pool),
@@ -1101,7 +1101,7 @@ pass
 
 
 
-def floating_ip_create_all(ostack_ip, pool="ext-net", ostack_cred=None):
+def floating_ip_create_all(ostack_ip, pool='null', ostack_cred=None):
     ip_list = True
     while ip_list:
         ip_list = floating_ip_create(ostack_ip=ostack_ip, pool=pool, ostack_cred=ostack_cred)
@@ -1113,7 +1113,7 @@ def floating_ip_create_all(ostack_ip, pool="ext-net", ostack_cred=None):
     return(ip_list)
 pass
 
-### outx.log_info("floating_ip_create_all:\n%s" %(floating_ip_create_all("10.71.118.176", "ext-net")))
+### outx.log_info("floating_ip_create_all:\n%s" %(floating_ip_create_all("10.71.118.176", 'null')))
 
 
 
@@ -1129,7 +1129,7 @@ pass
 
 
 
-def floating_ip_delete_all(ostack_ip, pool="ext-net", ostack_cred=None):
+def floating_ip_delete_all(ostack_ip, pool='null', ostack_cred=None):
     ## dict_list = floating_ip_list(ostack_ip=ostack_ip, pool=pool, ostack_cred=ostack_cred)
     ip_list = floating_ip_list(ostack_ip=ostack_ip, pool=pool, ostack_cred=ostack_cred)
     outx.log_info("floating_ip_delete_all -- Initial ip_list:\n%s" %(outx.pformat(ip_list)))
@@ -1142,7 +1142,7 @@ def floating_ip_delete_all(ostack_ip, pool="ext-net", ostack_cred=None):
     return(ip_list)
 pass
 
-###outx.log_info("floating_ip_delete_all:\n%s" %(floating_ip_delete_all("10.71.118.176", "ext-net")))
+###outx.log_info("floating_ip_delete_all:\n%s" %(floating_ip_delete_all("10.71.118.176", 'null')))
 
 
 

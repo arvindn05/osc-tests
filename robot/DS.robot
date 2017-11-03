@@ -29,21 +29,28 @@ Prepare variables
     ${da}=   get_da   ${da-name}  ${da-mcname}  ${da-model}  ${da-swname}  ${da-domainName}  ${da-encapType}  ${da-vcname}  ${da-vctype}
     ##                  ds_name, da_name, region_name, project_name, selection, inspnet_name, mgmtnet_name, ippool_name, shared, count
     ${ds}=   get ds   ${ds-name}  ${da-name}  ${ds-region}  ${ds-project}  ${ds-selction}  ${ds-insp-net}  ${ds-mgmt-net}  ${ds-floating-ip-pool}  ${ds-shared}  ${ds-count}
+
+    ${ds-allhosts-shared-false}=   get ds   ${ds-name}  ${da-name}  ${ds-region}  ${ds-project}  ${ds-selction}  ${ds-insp-net}  ${ds-mgmt-net}  ${ds-floating-ip-pool}  ${ds-shared-false}  ${ds-count}
+    ${ds-byhost-shared-false}=   get ds   ${ds-name}  ${da-name}  ${ds-region}  ${ds-project}  ${ds-selection-byhost}  ${ds-insp-net}  ${ds-mgmt-net}  ${ds-floating-ip-pool}  ${ds-shared-false}  ${ds-count}
+    ${ds-byAZ}=   get ds   ${ds-name}  ${da-name}  ${ds-region}  ${ds-project}  ${ds-selection-byAZ}  ${ds-insp-net}  ${ds-mgmt-net}  ${ds-floating-ip-pool}  ${ds-shared}  ${ds-count}
+    ${ds-byhost-nofloatingIP}=   get ds   ${ds-name}  ${da-name}  ${ds-region}  ${ds-project}  ${ds-selection-byhost}  ${ds-insp-net}  ${ds-mgmt-net}  ${blank}  ${ds-shared}  ${ds-count}
+    ${ds-byhostAgg-shared-false}=   get ds   ${ds-name}  ${da-name}  ${ds-region}  ${ds-project}  ${ds-selection-byHA}  ${ds-insp-net}  ${ds-mgmt-net}  ${blank}  ${ds-shared-false}  ${ds-count}
+
     ##   SG:            sg_name,   vc_name,   project_name,   protect_all,   encode_unicode
+
     ${sg}=   get sg   ${sg-name}  ${vc-name}  ${ds-project}  ${sg-protect-all}
     ##   SGMBR:              sg_name, member_name, member_type, region_name, protect_external=None
     ${sg-vm-mbr}=  get sgmbr  ${sg-name}  ${sg-vm-member-name}  ${sg-vm-member-type}  ${ds-region}
     ${sg-network-mbr}=  get sgmbr  ${sg-name}  ${sg-network-member-name}  ${sg-network-member-type}  ${ds-region}
     ${sg-subnet-mbr}=  get sgmbr  ${sg-name}  ${sg-subnet-member-name}  ${sg-subnet-member-type}  ${ds-region}  ${true}
-    ##  SGBDG:               sg_name,  da_name,      binding_name,   policy_name=None,  is_binded=True,  tag_value=None, failure_policy=None, order=0
-    ${sg-bdg}=  get sgBdg  ${sg-name}  ${da-name}  ${sg-binding-name}  ${sg-server-policy-name}  ${true}
+
 
 
     log to console  ${\n}
     log to console  ${ds.name}
     log to console  ${ds.project_name}
     log to console  ${ds.region_name}
-    log to console  ${ds.selction}
+    log to console  ${ds.selection}
     log to console  ${sg.name}
     log to console  ${sg.vc_name}
 
@@ -52,19 +59,28 @@ Prepare variables
     set global variable   ${mc}
     set global variable   ${da}
     set global variable   ${ds}
+    set global variable   ${ds-allhosts-shared-false}
+    set global variable   ${ds-byhost-shared-false}
+    set global variable   ${ds-byAZ}
+    set global variable   ${ds-byhost-nofloatingIP}
+    set global variable   ${ds-byhostAgg-shared-false}
     set global variable   ${sg}
     set global variable   ${sg-vm-mbr}
     set global variable   ${sg-network-mbr}
     set global variable   ${sg-subnet-mbr}
-    set global variable   ${sg-bdg}
     set global variable   ${log}
 
 2SHOW OSC VERSION
     ${osc-version}=  get version  ${osc}
     log to console   ${osc-version}
 
+
+
 Clean SGs
     deleteSG   ${osc}
+
+Clean SFCs
+    deleteAllSFCs  ${osc}
 
 Clean DAs
     delete das  ${osc}
@@ -103,32 +119,73 @@ UPload VNF Image if needed
     ${result}=  positive test   ${true}  ${false}  da  name  ${da-name}  ${da}  ${osc}  ${log}
     should be equal as integers  ${result}  0
 
-6Positive Deployment Spec with all hosts
+7Positive Deployment Spec with by host aggregate and shared unchecked
+    ##Test Name:  TS1_TC10_DSSelectionCriterion_HostAggregate_UnShared_Add
+    ##Test Desc:  Validate the Appliance instance is created with Discovered and Inspection-Ready state as 'true' when the DeploymentSpecification details are Tenant- "Demo", Region- "RegionOne", selection criteria- "HostAggregate" , Shared Unchecked
+    ##Test type: Positve
+
+    ##Test Name:  TS1_TC6_DSSelectionCriterion_HostAggregate_Add
+    ##Test Desc:  Validate the Appliance instance is created with Discovered and Inspection-Ready state is true when the Tenant- "Demo", Region- "RegionOne", selection criteria- "HostAggregate" and Floating IP Pool - External Network
+    ##Test Type:  Positive
+
+
+
+    ${result}=  positive test   ${true}  ${false}  ds  name  ${ds-name}  ${ds-byhostAgg-shared-false}  ${osc}  ${log}
+    should be equal as integers  ${result}  0
+
+
+8Positive Deployment Spec with by host with blank floating point
+    ##Test Name:  TS1_TC3_DS_Selection_ByHost_IPPoolBlank_Add
+    ##Test Desc:  Validate the Appliance instance is created with Discovered and Inspection-Ready state is true when the selection criterion is "By Host" and Floating IP Pool -'blank'
+    ##Test type: Positve
+
+    ${result}=  positive test   ${true}  ${false}  ds  name  ${ds-name}  ${ds-byhost-nofloatingIP}  ${osc}  ${log}
+    should be equal as integers  ${result}  0
+
+
+9Positive Deployment Spec with by avaialavility zone
+    ##Test Name:  TS1_TC5_DSSelectionCriterion_AvailabilityZone_Add
+    ##Test Desc:  Validate the Appliance instance is created with Discovered and Inspection-Ready state is true when the Tenant- "Demo", Region- "RegionOne", selection criteria- "Availability Zone" and Floating IP Pool -'ext-net'
+    ##Test type: Positve
+
+    ##Test Name:  TS1_TC9_DSSelectionCriterion_AvailabilityZone_UnShared_Add
+    ##Test Desc:  Validate the Appliance instance is created with Discovered and Inspection-Ready state is true when the DeploymentSpecification details are Tenant- "Demo", Region- "RegionOne", selection criteria- "Availability Zone", Shared Unchecked
+    ##Test type: Positve
+
+
+    ${result}=  positive test   ${true}  ${false}  ds  name  ${ds-name}  ${ds-byAZ}  ${osc}  ${log}
+    should be equal as integers  ${result}  0
+
+
+
+10Positive Deployment Spec with by host shared unchecked
+    ##Test Name:  TS1_TC8_DSSelectionCriterion_ByHost_UnShared_Add
+    ##Test Desc:  Validate the Appliance instance is created with Discovered and Inspection-Ready state is true when the DeploymentSpecification details are Tenant- "Demo", Region- "RegionOne", selection criteria- "By Host" and Shared-UNaCHECKED
+    ##Test type:  Positve
+
+    ${result}=  positive test   ${true}  ${false}  ds  name  ${ds-name}  ${ds-byhost-shared-false}  ${osc}  ${log}
+    should be equal as integers  ${result}  0
+
+
+11Positive Deployment Spec with all hosts shared unchecked
+    ##Test Name:  TS1_TC7_DSSelectionCriterion_All_Unshared_Add
+    ##Test Desc:  Validate the Appliance instance is created with Discovered and Inspection-Ready state is true when the DeploymentSpecification details are Tenant- "Demo", Region- "RegionOne", selection criteria- "All" ,shared - UNCHECKED
+    ##Test type:  Positve
+
+    ${result}=  positive test   ${true}  ${false}  ds  name  ${ds-name}  ${ds-allhosts-shared-false}  ${osc}  ${log}
+    should be equal as integers  ${result}  0
+
+
+12Positive Deployment Spec with all hosts
+    ##Test Name:  TS1_TC2_DSSelectionCriterion_All_Add
+    ##Test Desc:  Validate the Appliance instance is created with Discovered and Inspection-Ready state as true when the selection criterion is All and Floating IP Pool - External Network
+    ##Test type:  Positive
     ${result}=  positive test   ${true}  ${false}  ds  name  ${ds-name}  ${ds}  ${osc}  ${log}
     should be equal as integers  ${result}  0
 
-7Positive Create Security Group
-    ${result}=  positive test   ${true}  ${false}  sg  name  ${sg-name}  ${sg}  ${osc}  ${log}
-    should be equal as integers  ${result}  0
 
-#8Positive Add VM Security Group Member
-#    ##                                    start_clean, finish_clean, obj_type, field_type, field, obj, osc, log)
-#    ${result}=  positive add sg member test  ${true}  ${false}  sgmbr  none  none  ${sg-vm-mbr}  ${osc}  ${log}
-#    should be equal as integers  ${result}  0
-#
-#9Positive Add Network Security Group Member
-#    ##                                    start_clean, finish_clean, obj_type, field_type, field, obj, osc, log)
-#    ${result}=  positive add sg member test  ${false}  ${false}  sgmbr  none  none  ${sg-network-mbr}  ${osc}  ${log}
-#    should be equal as integers  ${result}  0
-#
-#10Positive Add Subnet Security Group Member
-#    ##                                    start_clean, finish_clean, obj_type, field_type, field, obj, osc, log)
-#    ${result}=  positive add sg member test  ${false}  ${false}  sgmbr  none  none  ${sg-subnet-mbr}  ${osc}  ${log}
-#    should be equal as integers  ${result}  0
 
-11Positive Add Security Group Binding
-    ##                                    start_clean, finish_clean, obj_type, field_type, field, obj, osc, log)
-    ${result}=  positive add sg binding test  ${false}  ${false}  sgbdg  none  none  ${sg-bdg}  ${osc}  ${log}
-    should be equal as integers  ${result}  0
+
+
 
 

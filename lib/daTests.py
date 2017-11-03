@@ -43,8 +43,8 @@ def get_sg(sg_name, vc_name, project_name, protect_all):
 def get_sgmbr(sg_name, member_name, member_type, region_name, protect_external=None):
     return forrobot.sgMbr(sg_name, member_name, member_type, region_name, protect_external)
 
-def get_sgbdg(sg_name, da_name, binding_name, policy_name, is_binded=True, tag_value=None, failure_policy=None, order=0):
-    return forrobot.sgBdg(sg_name, da_name, binding_name, policy_name, is_binded, tag_value, failure_policy, order)
+def get_sgbdg(sg_name, da_name, binding_name, policy_names, is_binded=True, tag_value=None, failure_policy='NA', order=0):
+    return forrobot.sgBdg(sg_name, da_name, binding_name, policy_names, is_binded, tag_value, failure_policy, order)
 
 def createDS(osc, ds):
     osc.createDS(ds)
@@ -58,8 +58,30 @@ def deleteDS(osc, ds_name_or_id=None):
 def getDSs(osc, ds_name_or_id=None):
     return osc.getAllDeploymentSpecs(ds_name_or_id=ds_name_or_id)
 
-def getSFCs(osc, sfc_name_or_id=None):
-    return osc.getAllSFCs(sfc_name_or_id=sfc_name_or_id)
+def getNumofSFCs(osc):
+    ret = osc.getAllSFCs()
+    return len(ret)
+
+def getAllSFCs(osc):
+    return osc.getAllSFCs()
+
+def getAllSFCperVC(osc, vc_id):
+    return osc.getAllSFCperVC(vc_id)
+
+def getSFCbyId(osc, vc_id=None, sfc_id=None):
+    return osc.getSFCbyId(vc_id, sfc_id)
+
+def createSFC(osc, sfc):
+    return osc.createSFC(sfc)
+
+def updateSFC(osc, sfc_obj=None, sfc_id=None):
+    return osc.updateSFC(sfc_obj, sfc_id)
+
+def deleteSFC(osc, vc_id=None, sfc_id=None):
+    return osc.deleteSFC(vc_id, sfc_id)
+
+#def deleteAllSFCs(osc):
+    #return osc.deleteAllSFCs()
 
 def createSG(osc, sg):
     osc.createSG(sg)
@@ -81,8 +103,10 @@ def addSgMbr(osc, sg_mbr):
 def removeSgMbr(osc, sg_name_or_id=None, member_name_or_id=None):
     osc.removeSecurityGroupMember(sg_name_or_id=sg_name_or_id, member_name_or_id=member_name_or_id)
 
+def getSgMbrsIpMac(osc, sg_name_or_id=None, vc_name_or_id=None):
+    return osc.getAllSecurityGroupMembersMacIps(sg_name_or_id=sg_name_or_id, vc_name_or_id=vc_name_or_id)
+
 def getSgMbrs(osc, sg_name_or_id=None, vc_name_or_id=None):
-    #a = osc.getAllSecurityGroupMembers(sg_name_or_id=sg_name_or_id, vc_name_or_id=vc_name_or_id)
     return osc.getAllSecurityGroupMembers(sg_name_or_id=sg_name_or_id, vc_name_or_id=vc_name_or_id)
 
 def addSgBdg(osc, sg_bdg):
@@ -95,6 +119,10 @@ def getSgBdgs(osc, sg_name_or_id=None, binding_name_or_id=None):
     sg_bdgs = osc.getAllSGBindingsTable(sg_name_or_id=sg_name_or_id, binding_name_or_id=binding_name_or_id)
     Log.log_info("Exit getSgBdgs -- Return:\n%s" %(Log.pformat(sg_bdgs)))
     return sg_bdgs
+
+def getNumSgBdgs(osc):
+    l = getSgBdgs(osc)
+    return len(l)
 
 def removeSgBdgs(osc, sg_name_or_id=None, binding_name_or_id=None):
     osc.removeSecurityGroupBindings(sg_name_or_id=sg_name_or_id, binding_name_or_id=binding_name_or_id)
@@ -161,13 +189,21 @@ def force_delete_das(osc):
     return len(dict_das)
 pass
 
-def delete_das(osc):
-    dict_das = osc.getDistributedAppliances()
+def deleteAllSFCs(osc):
+    osc.deleteAllSFCs()
 
-    print ("list id to delete", dict_das.values())
-    for da_id in dict_das.values():
-        print ("Deleting", da_id)
-        deleteDA(osc, da_id, False)
+def delete_das(osc):
+    try:
+        dict_das = osc.getDistributedAppliances()
+
+        print ("list id to delete", dict_das.values())
+        for da_id in dict_das.values():
+            print ("Deleting", da_id)
+            deleteDA(osc, da_id, False)
+    except Exception as e:
+        err_info = datastructUtils.get_exception_info(e)
+        Log.log_error("delete_das(): %s" % (Log.pformat(err_info)))
+        pass
 
     dict_das = osc.getDistributedAppliances()
     if len(dict_das) == 0:
@@ -179,8 +215,18 @@ def delete_das(osc):
             print ("force deleting", da_id)
             deleteDA(osc, da_id, True)
 
-    return 1
-pass
+    dict_das = osc.getDistributedAppliances()
+    return len(dict_das)
+
+
+def delete_das_no_fail(osc):
+    try:
+        delete_das(osc)
+
+    except Exception as e:
+        pass
+
+    return 0
 
 
 def deployDAostk(osc, daid):
@@ -192,7 +238,8 @@ def deployDAostk(osc, daid):
     da_dict = datastructUtils.get_obj_dict(da)
     Log.log_info("daTests.deployDA -- DA:\n%s" %(Log.pformat(da_dict)))
     #osc.deployOStackAppliance(daid, projectId, project, region, managementNetwork, mgmtId, inspectionNetwork, inspectId, ippool, count)
-    osc.deployOStackAppliance(daid, projectId='admin', project='admin', region='RegionOne', managementNetwork='mgmt-net', mgmtId=1, inspectionNetwork='inspec-net', inspectId=1, ippool='ext-net', count=1)
+    osc.deployOStackAppliance(daid, projectId='admin', project='admin', region='RegionOne', managementNetwork='mgmt-net', mgmtId=1, inspectionNetwork='inspec-net', inspectId=1, ippool='null', count=1)
+
 def deployDAnsx(osc, da):
     Log.log_info("deployDA -- daname(type=%s): %s" %(type(da.daname), Log.pformat(da.daname)))
     if not isinstance(da.daname, str):
@@ -201,7 +248,6 @@ def deployDAnsx(osc, da):
     da_dict = datastructUtils.get_obj_dict(da)
     Log.log_info("daTests.deployDA -- DA:\n%s" %(Log.pformat(da_dict)))
     osc.deployAppliance(daid, cluster, datastore, portgrgroup, ippool)
-
 
 def updateDA(osc, da, daid):
     global Log
@@ -243,6 +289,9 @@ def get_da(daname, mcname, model, swname, domainName, encapType, vcname, vctype)
     da = forrobot.da(daname, mcname, model, swname, domainName, encapType, vcname, vctype)
     return da
 
+def get_sfc(name, vcname, vcid, vsid=None, sfcid=None):
+    sfc = forrobot.sfc(name, vcname, vcid, vsid, sfcid)
+    return sfc
 
 def positive_test_da_name(start_clean, finish_clean, daname, da, osc, log):
     global Log
